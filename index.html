@@ -1,0 +1,3256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KET作文批改系统·CharlieAI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --apple-bg: #F5F5F7; --apple-text: #1D1D1F; --apple-blue: #007AFF;
+            --apple-blue-hover: #0062CC; --apple-card: rgba(255, 255, 255, 0.85);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background-color: var(--apple-bg); color: var(--apple-text); overflow: hidden; -webkit-font-smoothing: antialiased;
+        }
+        
+        ::-webkit-scrollbar { width: 0px; height: 0px; background: transparent; }
+
+        .btn-apple {
+            background-color: var(--apple-blue); color: white; border-radius: 12px; padding: 8px 14px; font-size: 13px; font-weight: 600; transition: all 0.2s ease; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
+        }
+        .btn-apple:hover { background-color: var(--apple-blue-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3); }
+        .btn-apple:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0, 122, 255, 0.15); }
+        
+        .btn-apple.secondary { background-color: white; color: var(--apple-text); border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 1px 4px rgba(0,0,0,0.02); }
+        .btn-apple.secondary:hover { background-color: #FAFAFC; border-color: rgba(0,0,0,0.1); }
+        
+        .btn-apple.danger { background-color: #FF3B30; box-shadow: 0 2px 8px rgba(255, 59, 48, 0.2); }
+        .btn-apple.danger:hover { background-color: #D70015; }
+
+        .card-hover { transition: all 0.3s ease; border: 1px solid rgba(255,255,255,0.6); box-shadow: 0 4px 20px rgba(0,0,0,0.03); background: var(--apple-card); backdrop-filter: blur(20px); }
+        .card-hover:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.06); border-color: #fff; }
+
+        .modal { opacity: 0; pointer-events: none; transition: all 0.3s ease; backdrop-filter: blur(10px); background: rgba(0,0,0,0.3); z-index: 100;}
+        .modal.active { opacity: 1; pointer-events: auto; }
+        .modal-content { transform: scale(0.95); transition: all 0.3s ease; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 20px 50px rgba(0,0,0,0.15); }
+        .modal.active .modal-content { transform: scale(1); }
+
+        .toast { position: fixed; top: 40px; left: 50%; transform: translateX(-50%) translateY(-10px) scale(0.95); background: rgba(29, 29, 31, 0.9); color: white; padding: 12px 24px; border-radius: 20px; font-size: 14px; font-weight: 500; opacity: 0; transition: all 0.3s ease; z-index: 9999; backdrop-filter: blur(10px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); pointer-events: none; display: flex; align-items: center; gap: 8px;}
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+
+        .segmented-control { background: rgba(118, 118, 128, 0.1); padding: 3px; border-radius: 10px; display: flex; gap: 2px; }
+        .nav-tab { color: #5C5C5E; padding: 6px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; transition: all 0.2s ease; display: flex; align-items: center; gap: 6px; }
+        .nav-tab:hover { color: #1D1D1F; }
+        .nav-tab.active { background: white; color: var(--apple-text); box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+
+        input[type=range] { -webkit-appearance: none; width: 140px; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.2); cursor: pointer; margin-top: -8px; border: 0.5px solid rgba(0,0,0,0.04); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cursor: pointer; background: rgba(118, 118, 128, 0.16); border-radius: 5px; }
+        
+        .trans-toggle { transition: all 0.2s ease; }
+        .trans-toggle:active { transform: scale(0.96); }
+
+        #fullscreen-slide { transition: opacity 0.4s ease, transform 0.4s ease; opacity: 0; pointer-events: none; transform: scale(0.98); z-index: 200; }
+        #fullscreen-slide.active { opacity: 1; pointer-events: auto; transform: scale(1); }
+        
+        @keyframes pulse-bg { 0% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.2); } 70% { box-shadow: 0 0 0 8px rgba(0, 122, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0); } }
+        .active-student { animation: pulse-bg 2s infinite; }
+
+        .trans-widget { transition: all 0.2s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .trans-widget:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
+        .trans-widget:active { transform: scale(0.98); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+    </style>
+</head>
+<body class="flex h-screen w-full">
+
+    <div id="toast" class="toast"><i class="fa-solid fa-circle-check text-green-400"></i><span id="toast-msg"></span></div>
+
+    <aside class="w-20 lg:w-64 bg-white/60 backdrop-blur-3xl border-r border-white/40 flex flex-col z-20 shrink-0 relative shadow-[2px_0_20px_rgba(0,0,0,0.02)] transition-all duration-300">
+        <div class="p-4 lg:p-5 border-b border-gray-200/50 flex flex-col items-center lg:items-stretch">
+            <h1 class="text-xl font-bold text-gray-900 mb-5 flex items-center justify-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-md">
+                    <i class="fa-solid fa-pen-nib text-sm"></i>
+                </div>
+                <span class="hidden lg:inline tracking-tight">CharlieAI</span>
+            </h1>
+            <div class="flex flex-col lg:flex-row gap-2 w-full">
+                <button onclick="openModal('class-modal')" class="btn-apple secondary flex-1 !p-2" title="新建班级"><i class="fa-solid fa-folder-plus"></i><span class="hidden lg:inline text-xs ml-1">新建</span></button>
+                <button onclick="openModal('ai-modal')" class="btn-apple flex-1 bg-gray-900 hover:bg-black !p-2" title="AI批改作文"><i class="fa-solid fa-gear"></i><span class="hidden lg:inline text-xs ml-1">AI批改</span></button>
+            </div>
+        </div>
+        
+        <div id="sidebar-content" class="flex-1 overflow-y-auto p-3 lg:p-4 space-y-1.5 relative"></div>
+
+        <div class="p-4 border-t border-gray-200/50 flex flex-col gap-2 bg-white/30 backdrop-blur-md">
+            <div class="flex flex-col lg:flex-row gap-2">
+                <button onclick="backupData()" class="btn-apple secondary flex-1 !py-2" title="备份数据"><i class="fa-solid fa-cloud-arrow-down"></i><span class="hidden lg:inline text-xs ml-1">备份</span></button>
+                <label class="btn-apple secondary flex-1 !py-2 cursor-pointer text-center m-0" title="恢复数据">
+                    <i class="fa-solid fa-cloud-arrow-up"></i><span class="hidden lg:inline text-xs ml-1">恢复</span>
+                    <input type="file" id="restore-file" accept=".json" class="hidden" onchange="restoreData(event)">
+                </label>
+            </div>
+            <button onclick="clearSystemData()" class="btn-apple danger w-full !py-2" title="重置系统"><i class="fa-solid fa-rotate-right"></i><span class="hidden lg:inline text-xs ml-1">重置</span></button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-full bg-[#F5F5F7] overflow-hidden relative">
+        <header class="bg-white/70 backdrop-blur-2xl border-b border-white/50 h-16 flex items-center justify-between px-6 lg:px-8 shrink-0 z-10 shadow-sm">
+            <div class="segmented-control">
+                <button class="nav-tab active" onclick="switchTab('student-essays', this)"><i class="fa-solid fa-inbox"></i> <span class="hidden sm:inline">阅卷</span></button>
+                <button class="nav-tab" onclick="switchTab('data-analysis', this)"><i class="fa-solid fa-chart-pie"></i> <span class="hidden sm:inline">分析</span></button>
+                <button class="nav-tab" onclick="switchTab('writing-guidance', this)"><i class="fa-solid fa-chalkboard-user"></i> <span class="hidden sm:inline">指导</span></button>
+            </div>
+            <div class="text-xs font-bold text-gray-500 bg-white/80 px-4 py-1.5 rounded-full border border-gray-100 shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-graduation-cap text-[#007AFF]"></i>
+                <span id="top-class-name" class="truncate max-w-[150px]">未选择班级</span>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-6 lg:p-8 relative" id="main-content">
+            
+            <div id="student-essays" class="tab-content flex-col h-full hidden">
+                <div class="flex justify-between items-center mb-6 shrink-0 bg-white/80 backdrop-blur-lg p-3 px-5 rounded-2xl shadow-sm border border-white">
+                    <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2"><i class="fa-solid fa-layer-group text-blue-500"></i> 批改预览</h2>
+                    <div class="segmented-control !p-1">
+                        <button id="essay-sort-default" onclick="setEssaySort('default')" class="px-3 py-1.5 text-xs font-bold rounded-md bg-white shadow-sm text-gray-900 transition-all" title="默认排序"><i class="fa-solid fa-clock"></i> <span class="hidden md:inline">默认</span></button>
+                        <button id="essay-sort-desc" onclick="setEssaySort('desc')" class="px-3 py-1.5 text-xs font-bold rounded-md text-gray-500 hover:text-gray-900 transition-all" title="得分降序"><i class="fa-solid fa-arrow-down-9-1"></i> <span class="hidden md:inline">降序</span></button>
+                        <button id="essay-sort-asc" onclick="setEssaySort('asc')" class="px-3 py-1.5 text-xs font-bold rounded-md text-gray-500 hover:text-gray-900 transition-all" title="得分升序"><i class="fa-solid fa-arrow-up-1-9"></i> <span class="hidden md:inline">升序</span></button>
+                    </div>
+                </div>
+                <div id="student-essays-grid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-5 pb-8 content-start"></div>
+            </div>
+
+            <div id="data-analysis" class="tab-content hidden flex-col gap-6">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-sm font-black text-gray-900 flex items-center gap-2"><i class="fa-solid fa-file-export text-emerald-500"></i> 交付中心</h2>
+                        <p class="text-xs text-gray-500 mt-1">给任课老师、主教和家长使用的批改交付物</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="exportClassExcel()" class="btn-apple !bg-emerald-600 hover:!bg-emerald-700 !shadow-sm !rounded-xl !py-2.5"><i class="fa-solid fa-file-excel"></i> 导出Excel</button>
+                        <button onclick="previewParentFeedback()" class="btn-apple secondary !rounded-xl !py-2.5"><i class="fa-solid fa-comments text-blue-500"></i> 查看家校反馈</button>
+                        <button onclick="downloadParentFeedback()" class="btn-apple secondary !rounded-xl !py-2.5"><i class="fa-solid fa-file-lines text-orange-500"></i> 导出反馈</button>
+                        <button onclick="previewLeadTeacherReview()" class="btn-apple secondary !rounded-xl !py-2.5"><i class="fa-solid fa-clipboard-list text-purple-500"></i> 查看主教复盘</button>
+                    </div>
+                </div>
+                <div class="flex flex-wrap lg:flex-nowrap justify-between items-center bg-white rounded-3xl p-6 shadow-sm border border-gray-50 gap-4">
+                    <div class="flex gap-10 pl-2">
+                        <div><p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">均分</p><p class="text-4xl font-black text-[#007AFF]" id="stat-avg">--</p></div>
+                        <div><p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">通过率</p><p class="text-4xl font-black text-[#34C759]" id="stat-pass-rate">--</p></div>
+                    </div>
+                    
+                    <div class="flex items-center bg-[#FBFBFD] p-3 px-5 rounded-2xl border border-gray-100 shadow-inner flex-wrap md:flex-nowrap">
+                        <div class="flex flex-col border-r border-gray-200 pr-5 mr-5">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">单题满分</label>
+                            <input type="number" id="input-max-score" class="w-14 bg-transparent text-xl font-black text-gray-800 outline-none text-center" value="15" onchange="updateMaxScore(this.value)">
+                        </div>
+                        <div class="flex flex-col pr-5 border-r border-gray-200 mr-5">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex justify-between">
+                                通过线 <span class="text-[#007AFF] font-black" id="pass-mark-val">8</span>
+                            </label>
+                            <div class="flex items-center gap-2 mt-1">
+                                <button onclick="adjPass(-1)" class="w-6 h-6 rounded-full bg-white shadow-sm border border-gray-200 hover:bg-gray-50 text-gray-600"><i class="fa-solid fa-minus text-[10px]"></i></button>
+                                <input type="range" id="pass-mark-slider" min="1" max="15" value="8" oninput="debounceUpdatePassMark(this.value)">
+                                <button onclick="adjPass(1)" class="w-6 h-6 rounded-full bg-white shadow-sm border border-gray-200 hover:bg-gray-50 text-gray-600"><i class="fa-solid fa-plus text-[10px]"></i></button>
+                            </div>
+                        </div>
+                        <div class="flex flex-col text-right">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">实考/总数</p>
+                            <p class="text-sm text-gray-500 font-medium mt-1"><span class="text-xl font-black text-gray-900" id="actual-takers">0</span>/<span id="total-students">0</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-50 lg:col-span-1 flex flex-col relative overflow-hidden">
+                        <div class="flex justify-between items-center mb-4 z-10">
+                            <h3 class="font-bold text-gray-800 text-sm flex items-center gap-2"><i class="fa-solid fa-arrow-trend-down text-orange-500"></i> 关注名单</h3>
+                            <div class="segmented-control !p-1 z-10">
+                                <button id="btn-focus-avg" onclick="setFocusFilter('avg')" class="px-3 py-1 text-[11px] font-bold rounded-md bg-white shadow-sm text-gray-900">低于均分</button>
+                        <button id="btn-focus-pass" onclick="setFocusFilter('pass')" class="px-3 py-1 text-[11px] font-bold rounded-md text-gray-500 hover:text-gray-900">低于通过线</button>
+                            </div>
+                        </div>
+                        <div id="focus-list" class="flex flex-wrap gap-2 content-start overflow-y-auto z-10"></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-50 lg:col-span-2 relative overflow-hidden">
+                        <h3 class="font-bold text-gray-800 text-sm mb-2 flex items-center gap-2"><i class="fa-solid fa-radar text-purple-500"></i> 能力雷达</h3>
+                        <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 items-center">
+                            <div class="h-56 flex justify-center relative z-10"><canvas id="radarChart"></canvas></div>
+                            <div id="radar-score-cards" class="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-1 gap-3"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-50">
+                    <h3 class="font-bold text-gray-800 text-sm mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-column text-blue-500"></i> 单题表现矩阵</h3>
+                    <div class="h-56"><canvas id="barChart"></canvas></div>
+                    <div id="bracket-lists" class="mt-6 flex flex-wrap border-t border-gray-50 pt-6 gap-y-4"></div>
+                </div>
+            </div>
+
+            <div id="writing-guidance" class="tab-content hidden h-full flex gap-6">
+                <div class="w-24 md:w-64 bg-white/80 backdrop-blur-xl rounded-3xl shadow-sm border border-white flex flex-col overflow-hidden shrink-0">
+                    <div class="p-3 md:p-4 border-b border-gray-100 flex flex-col gap-3 bg-white">
+                        <span class="font-bold text-gray-900 text-sm hidden md:inline">辅导名单</span>
+                        <div class="segmented-control !p-1 w-full flex">
+                            <button id="sort-desc" onclick="setGuidanceSort('desc')" class="flex-1 py-1.5 text-xs font-bold rounded-md bg-white shadow-sm text-gray-900" title="降序"><i class="fa-solid fa-arrow-down-9-1"></i><span class="hidden md:inline ml-1">降序</span></button>
+                            <button id="sort-asc" onclick="setGuidanceSort('asc')" class="flex-1 py-1.5 text-xs font-bold rounded-md text-gray-500 hover:text-gray-900" title="升序"><i class="fa-solid fa-arrow-up-1-9"></i><span class="hidden md:inline ml-1">升序</span></button>
+                        </div>
+                    </div>
+                    <div id="guidance-list" class="flex-1 overflow-y-auto p-2 md:p-3 space-y-1 scroll-smooth bg-[#FBFBFD]"></div>
+                </div>
+
+                <div class="flex-1 flex flex-col gap-4 overflow-hidden relative">
+                    <div id="guidance-content" class="flex-1 bg-white/90 backdrop-blur-xl rounded-3xl shadow-sm border border-white p-6 md:p-8 overflow-y-auto hidden flex-col">
+                        <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-100 shrink-0">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-sm"><i class="fa-solid fa-user"></i></div>
+                                <h2 class="text-xl font-bold text-gray-900 tracking-tight"><span id="guidance-student-name"></span></h2>
+                            </div>
+                            <button onclick="openFullscreenSlide()" class="btn-apple bg-gray-900 hover:bg-black shadow-sm px-5 py-2 rounded-xl text-sm" title="大屏投影模式"><i class="fa-solid fa-tv"></i> <span class="hidden md:inline ml-1">大屏投影</span></button>
+                        </div>
+                        <div id="guidance-report-panel" class="flex-col gap-6 flex-1"></div>
+                    </div>
+                    
+                    <div id="guidance-placeholder" class="flex-1 bg-white/50 backdrop-blur-md rounded-3xl border border-white flex flex-col items-center justify-center text-gray-400">
+                        <i class="fa-solid fa-hand-pointer text-3xl mb-3 text-blue-400/50"></i>
+                        <p class="font-medium text-sm">选择学生或大屏抽取</p>
+                    </div>
+
+                    <div class="bg-[#1D1D1F] rounded-3xl shadow-lg p-4 md:p-5 flex items-center justify-between shrink-0 border border-gray-800 backdrop-blur-xl">
+                        <div class="flex gap-2 flex-wrap pl-1" id="random-call-buttons"></div>
+                        <div class="random-result-display text-xl font-black text-white px-6 py-2 bg-white/10 rounded-xl border border-white/10 w-32 md:w-48 text-center truncate shrink-0 ml-4 transition-all duration-300">等待</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="fullscreen-slide" class="fixed inset-0 bg-[#FBFBFD] flex flex-col">
+        <div class="h-16 bg-white/90 backdrop-blur-2xl border-b border-gray-200 flex items-center justify-between px-6 shrink-0 shadow-sm z-20">
+            <div class="flex items-center gap-3">
+                <span class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm shadow-md"><i class="fa-solid fa-tv"></i></span>
+                <span id="slide-student-name" class="text-lg font-bold text-gray-900 tracking-tight">姓名</span>
+            </div>
+            
+            <div class="segmented-control !p-1 !rounded-xl absolute left-1/2 -translate-x-1/2 shadow-sm bg-gray-100">
+                <button id="slide-tab-original" onclick="setSlideTab('original')" class="px-5 py-1.5 rounded-lg text-sm font-bold transition-all">原文</button>
+                <button id="slide-tab-correction" onclick="setSlideTab('correction')" class="px-5 py-1.5 rounded-lg text-sm font-bold transition-all text-red-600">修改</button>
+                <button id="slide-tab-polish" onclick="setSlideTab('polish')" class="px-5 py-1.5 rounded-lg text-sm font-bold transition-all text-blue-600">润色</button>
+                <button id="slide-tab-summary" onclick="setSlideTab('summary')" class="px-5 py-1.5 rounded-lg text-sm font-bold transition-all text-purple-600">总评</button>
+                <button id="slide-tab-models" onclick="setSlideTab('models')" class="px-5 py-1.5 rounded-lg text-sm font-bold transition-all text-orange-600">范文</button>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button id="slide-reveal-btn" class="hidden px-4 py-1.5 rounded-lg bg-[#34C759] text-white font-bold shadow-sm hover:bg-[#30B753] transition-all text-xs" onclick="toggleAllTranslations()">
+                    <i class="fa-solid fa-eye"></i> 答案
+                </button>
+                <div class="flex bg-white border border-gray-200 p-1 rounded-lg shadow-sm">
+                    <button onclick="changeSlideFontSize(2)" class="w-8 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-800 font-bold transition-colors text-sm" title="放大">A+</button>
+                    <div class="w-[1px] h-4 bg-gray-200 my-auto mx-0.5"></div>
+                    <button onclick="changeSlideFontSize(-2)" class="w-8 h-7 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-800 font-bold transition-colors text-xs" title="缩小">A-</button>
+                </div>
+                <button onclick="closeFullscreenSlide()" class="w-8 h-8 rounded-full bg-gray-900 hover:bg-black text-white flex items-center justify-center transition-colors shadow-sm" title="退出 (ESC)"><i class="fa-solid fa-xmark text-sm"></i></button>
+            </div>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-8 flex justify-center items-start bg-[#FBFBFD] relative">
+            <div id="slide-essay-area" class="w-full max-w-[1200px] bg-white p-12 rounded-[36px] shadow-sm border border-gray-100 text-[22px] leading-[2.6] text-gray-800 font-medium tracking-wide transition-all duration-300 min-h-full"></div>
+        </div>
+        
+        <div class="h-20 bg-white border-t border-gray-200 flex items-center justify-between px-8 shrink-0 z-20">
+            <div class="flex items-center gap-4 flex-1 pr-6 border-r border-gray-200 mr-6 relative">
+                <button onclick="toggleVoiceInput()" id="btn-voice-fs" class="w-10 h-10 rounded-full bg-gray-100 hover:bg-blue-50 hover:text-[#007AFF] flex items-center justify-center text-gray-500 text-lg transition-all shadow-sm shrink-0"><i class="fa-solid fa-microphone"></i></button>
+                <input type="text" id="voice-text-fs" class="w-full bg-[#F5F5F7] border border-transparent rounded-xl p-3 text-sm font-medium outline-none focus:border-[#007AFF]/30 focus:bg-white transition-all placeholder-gray-400" placeholder="点击麦克风，进行语音输入...">
+                <div id="voice-listening-tag" class="hidden absolute right-12 top-1/2 -translate-y-1/2 flex items-center gap-2 text-[#007AFF] font-bold bg-blue-50 px-3 py-1 rounded-full text-xs">
+                    <span class="w-2 h-2 rounded-full bg-[#007AFF] animate-ping"></span> 聆听中...
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4 shrink-0">
+                <div class="flex gap-2 flex-wrap" id="random-call-buttons-fs"></div>
+                <div class="random-result-display text-xl font-black text-gray-800 px-6 py-2.5 bg-[#F5F5F7] rounded-xl border border-gray-200 w-40 text-center truncate shadow-inner transition-all duration-400">点名台</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="class-modal" class="modal fixed inset-0 flex items-center justify-center">
+        <div class="modal-content bg-white w-[400px] rounded-[28px] p-8 relative">
+            <h2 class="text-xl font-bold text-gray-900 mb-6 text-center tracking-tight">新建班级</h2>
+            <div class="space-y-4 mb-6">
+                <input type="text" id="new-class-name" class="w-full bg-[#F5F5F7] border border-transparent rounded-xl p-3 outline-none focus:bg-white focus:border-[#007AFF] transition-all text-sm" placeholder="班级名称">
+                <textarea id="new-class-students" class="w-full bg-[#F5F5F7] border border-transparent rounded-xl p-3 outline-none focus:bg-white focus:border-[#007AFF] transition-all h-28 resize-none text-sm" placeholder="学生名单（逗号或换行隔开）"></textarea>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeModal('class-modal')" class="btn-apple secondary flex-1 py-2.5 rounded-xl text-sm">取消</button>
+                <button onclick="createClass()" class="btn-apple flex-1 py-2.5 rounded-xl text-sm">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ai-modal" class="modal fixed inset-0 flex items-center justify-center">
+        <div class="modal-content bg-white w-[500px] rounded-[28px] p-8 relative">
+            <button onclick="closeModal('ai-modal')" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center"><i class="fa-solid fa-xmark text-sm"></i></button>
+            <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2"><i class="fa-solid fa-gear text-purple-500"></i> AI批改</h2>
+            <div class="space-y-4 mb-6">
+                <textarea id="ai-topic" oninput="saveAiConfig()" class="w-full bg-[#F5F5F7] border border-transparent rounded-xl p-3 outline-none focus:bg-white focus:border-purple-500 transition-all h-20 resize-none text-sm" placeholder="写作题目..."></textarea>
+                <textarea id="ai-rubric" oninput="saveAiConfig()" class="w-full bg-[#F5F5F7] border border-transparent rounded-xl p-3 outline-none focus:bg-white focus:border-purple-500 transition-all h-20 resize-none text-sm" placeholder="可选：补充评分标准或班级交付要求..."></textarea>
+                <input type="text" id="teacher-name" oninput="saveAiConfig()" class="w-full bg-[#F5F5F7] border border-transparent rounded-xl p-3 outline-none focus:bg-white focus:border-[#007AFF] transition-all text-sm font-semibold text-blue-600" placeholder="报告署名 (如：Charlie老师)">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button onclick="generatePromptAndJump('https://www.doubao.com/')" class="w-full py-3 bg-gray-900 hover:bg-black text-white rounded-xl font-bold text-sm shadow-md transition-transform active:scale-[0.98] flex items-center justify-center gap-2"><i class="fa-solid fa-paper-plane"></i> 去豆包生成</button>
+                <button onclick="generatePromptAndJump('https://chatgpt.com/')" class="w-full py-3 bg-[#10A37F] hover:bg-[#0E8F70] text-white rounded-xl font-bold text-sm shadow-md transition-transform active:scale-[0.98] flex items-center justify-center gap-2"><i class="fa-solid fa-message"></i> 去ChatGPT生成</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="upload-modal" class="modal fixed inset-0 flex items-center justify-center">
+        <div class="modal-content bg-white w-[560px] rounded-[28px] p-8 relative">
+            <h2 class="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2"><i class="fa-solid fa-code text-blue-500"></i> <span id="upload-title">录入结果</span></h2>
+            <p class="text-xs text-gray-500 mb-5 font-medium pl-6">直接粘贴JSON，自动提取解析。</p>
+            <textarea id="upload-json-text" class="w-full bg-[#F5F5F7] border border-transparent rounded-2xl p-4 text-xs font-mono outline-none focus:bg-gray-900 focus:text-green-400 transition-all h-56 resize-none mb-5 shadow-inner" placeholder="粘贴内容..."></textarea>
+            <div class="flex gap-3">
+                <input type="file" id="upload-json-file" accept=".json" class="hidden" onchange="handleSingleUpload(event)">
+                <button onclick="document.getElementById('upload-json-file').click()" class="btn-apple secondary flex-1 py-3 text-sm rounded-xl" title="本地文件"><i class="fa-solid fa-folder-open"></i> 文件</button>
+                <button onclick="saveStudentJson()" class="btn-apple flex-[2] py-3 text-sm rounded-xl shadow-sm"><i class="fa-solid fa-wand-magic-sparkles"></i> 智能提取</button>
+                <button onclick="closeModal('upload-modal')" class="btn-apple secondary py-3 px-4 rounded-xl"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="report-modal" class="modal fixed inset-0 flex items-center justify-center p-6" onclick="if(event.target===this) closeModal('report-modal')">
+        <div class="modal-content bg-white rounded-[32px] w-full max-w-[900px] max-h-[92vh] flex flex-col relative" id="report-modal-content">
+            <div class="flex justify-between items-center px-8 py-5 border-b border-gray-100 shrink-0">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm shadow-sm"><i class="fa-solid fa-chart-simple"></i></span>
+                    <h2 id="report-student-name" class="text-xl font-bold text-gray-900 tracking-tight">分析报告</h2>
+                </div>
+                <div class="flex gap-3" id="report-controls">
+                    <button onclick="exportReport()" class="btn-apple secondary py-2 px-4 text-xs font-bold rounded-full shadow-sm"><i class="fa-solid fa-image text-blue-500"></i> 存为长图</button>
+                    <button onclick="closeModal('report-modal')" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div id="report-canvas-area" class="flex-1 overflow-y-auto p-8 bg-[#FBFBFD] rounded-b-[32px] relative"></div>
+        </div>
+    </div>
+
+    <div id="delivery-modal" class="modal fixed inset-0 flex items-center justify-center p-6" onclick="if(event.target===this) closeModal('delivery-modal')">
+        <div class="modal-content bg-white rounded-[28px] w-full max-w-[920px] max-h-[92vh] flex flex-col relative">
+            <div class="flex justify-between items-center px-7 py-5 border-b border-gray-100 shrink-0">
+                <div class="flex items-center gap-3">
+                    <span id="delivery-icon" class="w-9 h-9 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-sm"><i class="fa-solid fa-comments"></i></span>
+                    <div>
+                        <h2 id="delivery-title" class="text-lg font-black text-gray-900 tracking-tight">交付预览</h2>
+                        <p id="delivery-subtitle" class="text-xs text-gray-500 mt-0.5">可直接编辑后复制或导出</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('delivery-modal')" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-6 bg-[#FBFBFD] overflow-y-auto">
+                <textarea id="delivery-preview-text" class="w-full min-h-[56vh] bg-white border border-gray-100 rounded-2xl p-5 text-sm leading-7 text-gray-800 outline-none focus:border-blue-200 focus:ring-4 focus:ring-blue-50 resize-y shadow-sm whitespace-pre-wrap"></textarea>
+            </div>
+            <div class="px-7 py-4 border-t border-gray-100 flex flex-wrap justify-between gap-3 bg-white rounded-b-[28px]">
+                <div class="text-xs text-gray-400 font-medium flex items-center gap-2"><i class="fa-solid fa-pen-to-square"></i> 弹窗内修改不会自动写回学生记录</div>
+                <div class="flex gap-2">
+                    <button onclick="copyDeliveryPreview()" class="btn-apple !rounded-xl !py-2.5"><i class="fa-solid fa-copy"></i> 复制当前内容</button>
+                    <button onclick="downloadDeliveryPreview()" class="btn-apple secondary !rounded-xl !py-2.5"><i class="fa-solid fa-download text-orange-500"></i> 导出文本</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/plain" id="ket-full-prompt-template">【输出与格式特别要求】
+
+1. 请始终用中文和我沟通。英文只用于学生原文、英文修正、提分范文和必要考试术语。不要输出全英文批改报告。
+
+2. 最终批改报告的栏目标题请中文优先，英文可作为补充放在后面。例如：“考试与题型识别｜Exam & Task Identification”，不要只输出英文标题。
+
+3. KET 英文 email / message 不按中文作文格式缩进；Dear ... 后正文顶格书写可以接受，不得因为没有空格或缩进扣分，也不得把“不缩进”列为错误。
+
+4. KET email 落款不强制使用 “Love,”。如果学生原文只写名字，通常可以接受。可以建议使用 “See you soon,” 或 “Write back soon,”，但不要说 “Love,” 是格式要求。
+
+5. 如果题目缺失，不要武断判定时间、地点、时态错误。对于依赖题目的表达，必须写成：“如果题目要求未来活动，则建议改为……；如果活动是今天，原句可以接受。”
+
+6. 如果原句意思清楚、语法可接受，只能标为“可优化表达”，不要列为严重错误或主要扣分点。
+
+7. 不要把 KET 作文按 PET、中高考、雅思或中文作文标准批改。KET 写作优先看：任务是否完成、读者是否看懂、信息是否清楚。
+
+8. 所有评分理由、错误解释、学生反馈、家长总结、老师建议必须中文输出。英文术语可以保留，但必须配中文解释或中文语境。
+
+---
+
+# Role｜角色设定
+
+你是一名资深 Cambridge English A2 Key / A2 Key for Schools 写作阅卷员，同时也是一名熟悉中国 K12 英语学习者问题的写作诊断专家。
+
+你的任务不是泛泛地批改作文，而是按照 Cambridge English A2 Key 写作评分逻辑，对学生作文进行：
+
+1. 考试与题型识别
+2. 题目任务拆解
+3. 官方维度评分
+4. 推荐分 / 保守分 / 教学交付分判断
+5. Cambridge Scale 与中国家长友好等级解释
+6. 边界分判断
+7. 错误严重度分级
+8. 逐句精修
+9. 保分提分改写
+10. 学生可理解反馈
+11. 家长可理解总结
+12. 助教批改质检
+13. 批量改卷处理
+14. 老师复核建议
+
+你的输出必须专业、稳定、可复核、可直接用于教学交付。
+
+---
+
+# Core Principle｜核心原则
+
+你不是普通英语老师。
+
+你不能只做语法纠错。
+
+你必须先判断：
+
+- 这是不是 A2 Key / KET 写作？
+- 这是 Part 6 邮件 / 信息，还是 Part 7 看图故事？
+- 任务点是什么？
+- 学生有没有完成任务？
+- 读者是否被充分告知？
+- 结构是否清楚？
+- 语言错误是否影响理解？
+- 这篇作文最该优先解决什么问题？
+
+评分优先级如下：
+
+1. Task completion / Content
+2. Reader understanding / Communication
+3. Organisation
+4. Language control
+5. Accuracy and range
+
+必须遵守：
+
+- 不要因为学生用了高级词就给高分。
+- 不要因为学生语法有小错就过度扣分。
+- 不要把 KET 作文按 PET 标准批。
+- 不要把 KET 作文按中高考作文标准批。
+- 不要把 KET 英文邮件按中文作文格式批。
+- 不要把考试批改变成中文作文式赏析。
+- KET 写作重点是：简单、清楚、准确、完成任务。
+- 对 KET 学生来说，简单准确通常比复杂但错误多更好。
+
+---
+
+# Input｜用户输入内容
+
+用户可能会提供以下信息：
+
+- 考试级别：KET / A2 Key / 不确定
+- 作文题目
+- 学生作文
+- 学生姓名
+- 年级
+- 批改模式
+- 是否需要家长反馈
+- 是否需要逐句精修
+- 是否需要助教质检
+- 是否需要批量处理
+
+如果用户没有明确考试级别，你需要根据题目和作文形式判断。
+
+如果用户没有提供题目，你必须先说明：
+
+“缺少作文题目会影响 Content 的准确评分。我可以先按语言和结构做初步诊断，但 Content 分数和等级解释只能作为暂估。”
+
+然后继续完成可完成的部分。
+
+---
+
+# Output Mode｜输出模式选择
+
+在开始输出前，先判断用户需要哪一种模式。
+
+如果用户说“快速改一下 / 出分 / 简单看一下”，使用：
+
+## Mode A｜Fast Marking 快速批改
+
+输出：
+
+1. 考试与题型识别
+2. 官方评分
+3. 推荐分 / 保守分 / 教学交付分
+4. Cambridge Scale & 中文等级解释
+5. 主要扣分原因
+6. Top 3 问题
+7. 下一步行动
+
+---
+
+如果用户说“详细批改 / 深度批改 / 逐句改”，使用：
+
+## Mode B｜Deep Correction 深度批改
+
+输出：
+
+1. 考试与题型识别
+2. 题目任务拆解
+3. 官方评分
+4. 推荐分 / 保守分 / 教学交付分
+5. Cambridge Scale & 中文等级解释
+6. 边界分判断
+7. 错误严重度分级
+8. 逐句精修
+9. 保分提分改写
+10. 学生反馈
+11. 家长总结
+12. 老师复核建议
+
+---
+
+如果用户说“帮我检查助教批改 / 复核分数”，使用：
+
+## Mode C｜TA QA / Teacher Review 助教质检 / 老师复核
+
+输出：
+
+1. 助教批改质检
+2. 建议修正分数
+3. 漏判问题
+4. 过度批改问题
+5. 给助教的修改意见
+6. 老师复核建议
+
+---
+
+如果用户说“这是很多篇 / 批量批改”，使用：
+
+## Mode D｜Batch Marking 批量批改
+
+每篇输出：
+
+1. 学生姓名
+2. 考试与题型
+3. 分数
+4. 中文等级解释
+5. 主要问题
+6. 一个优先修改点
+7. 一个下一步行动
+8. 老师备注
+
+如果用户没有说明模式，默认使用：
+
+## Mode B｜Deep Correction 深度批改
+
+---
+
+# Important Formatting Rules｜输出格式规则
+
+1. 中文解释为主。
+2. 栏目标题中文优先，英文可作为补充。
+3. 学生作文和改写版本保留英文。
+4. 不要使用复杂表格，除非用户明确要求。
+5. 默认使用分块 bullet，方便复制到微信、飞书、文档。
+6. 家长反馈必须中文。
+7. 学生反馈必须中文。
+8. 助教质检可以中文为主，保留必要英文术语即可。
+9. 不要输出无关理论。
+10. 不要写过度高级范文。
+11. 不要承诺考试一定通过或一定达到某等级。
+12. 不要输出全英文批改报告。
+13. 评分理由、错误解释、学生反馈、家长总结、老师建议必须用中文。
+14. 英文术语可以保留，例如 Content / Organisation / Language，但解释必须中文。
+
+---
+
+# Step 1｜考试与题型识别｜Exam & Task Identification
+
+先识别作文属于哪一类。
+
+输出格式：
+
+【考试与题型识别｜Exam & Task Identification】
+
+Exam:
+- A2 Key / KET
+- A2 Key for Schools
+- Unclear
+
+Task type:
+- Email
+- Note / Message
+- Story
+- Other
+
+Part:
+- KET Writing Part 6
+- KET Writing Part 7
+- Unclear
+
+Word count:
+- Estimated word count:
+- Within expected range: Yes / No / Unclear
+
+Target reader:
+- Friend / Teacher / Classmate / Examiner / Other
+
+Communicative purpose:
+- Invite / Inform / Explain / Describe / Recommend / Narrate / Other
+
+Risk level:
+- Low risk: task is clear
+- Medium risk: some task information missing
+- High risk: no task provided or task unclear
+
+Prompt status:
+- Full prompt provided / Partial prompt provided / Prompt missing
+
+Important note:
+- 如果题目缺失或不完整，必须说明 Content 和等级解释为 estimated 暂估。
+
+---
+
+# Step 2｜题目任务拆解｜Task Requirement Extractor
+
+根据题目拆出必须完成的信息点。
+
+如果题目完整，直接根据题目拆解。
+
+如果题目缺失，必须写：
+
+“以下任务点是根据学生作文反推，不代表原题一定这样要求。因此 Content 和等级判断为暂估。”
+
+输出格式：
+
+【题目任务拆解｜Task Requirements】
+
+Required content points:
+1.
+2.
+3.
+
+Optional development points:
+1.
+2.
+
+Tone required:
+- Informal / Neutral
+
+Expected response features:
+- Must answer all questions
+- Must continue the story
+- Must describe pictures
+- Must include a clear beginning, development and ending
+- Must give simple but clear information
+- Other
+
+Content checklist:
+□ Point 1
+□ Point 2
+□ Point 3
+
+KET Part 6 重点检查：
+- 是否回答所有 bullet points
+- 是否像真实短邮件 / message
+- 读者是否知道关键信息
+- 语气是否适合朋友、老师或熟人
+- 是否有清楚的称呼和落款
+- 不要求正文首行缩进
+- 不因正文顶格书写扣分
+
+KET Part 7 重点检查：
+- 是否根据图片写故事
+- 是否有事件发展
+- 是否有清楚结尾
+- 是否能看懂人物、动作和顺序
+- 是否只是描述图片，还是形成了故事
+
+---
+
+# Step 3｜官方评分｜Official Rubric Marker
+
+A2 Key / KET 使用以下三个维度：
+
+1. Content /5
+2. Organisation /5
+3. Language /5
+
+每项只能给整数分，不给半分。
+
+输出格式：
+
+【官方评分｜A2 Key / KET】
+
+Content 内容分：__ /5
+
+评分理由：
+-
+
+原文证据：
+-
+
+Organisation 组织分：__ /5
+
+评分理由：
+-
+
+原文证据：
+-
+
+Language 语言分：__ /5
+
+评分理由：
+-
+
+原文证据：
+-
+
+Raw total 原始总分：
+- __ /15
+
+Overall profile 整体表现：
+- Strong
+- Secure
+- Borderline
+- Weak
+
+Estimated result implication 考试参考：
+- Above A2 target
+- On A2 target
+- Slightly below A2 target
+- Clearly below A2 target
+
+---
+
+# Step 3A｜KET Scoring Rules 评分细则
+
+## Content Rules
+
+1. 先看任务点，不先看语法。
+2. 任务点没完成，语言再好也不能高 Content。
+3. 信息模糊会影响 Content。
+4. 跑题会严重影响 Content。
+5. 抄题不等于完成任务。
+6. Story 必须有事件发展。
+7. Email / message 必须让读者知道关键信息。
+8. 缺少原题时，Content 不能过度确定，必须标注 estimated。
+9. 如果读者能清楚知道“谁、做什么、需要什么”，Content 通常不应过低。
+10. 如果缺少题目中的一个明确 bullet point，Content 不能给满分。
+11. 如果题目缺失，不要武断判定时间、地点、时态错误。对于依赖题目的表达，必须写成“如果题目要求未来活动，则建议改为……；如果活动是今天，原句可以接受。”
+
+## Organisation Rules
+
+1. A2 不要求高级连接词。
+2. 基本连接词 and / but / because / so 有效即可。
+3. 顺序清楚比复杂结构重要。
+4. Story 要有时间顺序。
+5. Email / message 要像真实交流。
+6. 代词不清会影响 Organisation。
+7. 句子堆积会降低 Organisation。
+8. 一个小的连接词错误通常不会严重影响 Organisation，除非导致读者看不懂。
+9. 有称呼、正文、落款的 email/message，Organisation 通常有基础分。
+10. Part 7 如果只是孤立描述图片，没有故事推进，Organisation 要降档。
+11. KET 英文 email / message 不要求正文首行缩进。
+12. Dear ... 后正文顶格书写可以接受，不得因此扣 Organisation 分。
+13. 不得把“不缩进”“没有空两格”列为格式错误。
+14. 不得用中文作文排版标准评价英文 email。
+
+## Language Rules
+
+1. 不机械计算错误数量。
+2. 先判断错误是否影响理解。
+3. 小错不应被过度惩罚。
+4. 错误频繁但意思清楚，可以中档。
+5. 错误导致读者猜测，要降档。
+6. 高级词用错不加分。
+7. 简单准确比复杂错误更好。
+8. 不要因为“不够地道”直接降到低分。
+9. 不要因为一个 Because、一个时态问题或一个重复用词就大幅扣分。
+10. KET 优先看“能否清楚交流”，不是看高级和地道。
+11. 如果原句意思清楚、语法可接受，只能标为“可优化表达”，不要列为严重错误或主要扣分点。
+12. 如果某个修改取决于题目时间背景，必须说明不确定性，不要绝对判错。
+
+---
+
+# Step 3B｜KET Email Formatting Rule 邮件格式规则
+
+在批改 A2 Key / KET Part 6 email / note / message 时，必须遵守英文邮件格式，不得套用中文作文格式。
+
+正确规则：
+
+1. 英文非正式邮件写给朋友时，称呼后正文可以直接顶格开始。
+2. “Dear Mia,” 后下一行正文不需要空两格，也不需要缩进。
+3. 署名可以单独一行，例如：
+
+Dear Mia,
+Would you like to go camping with me?
+Suzy
+
+4. A2 Key / KET 写作不因“正文没有缩进”扣分。
+5. 不要要求学生“正文空一格”“正文空两格”“首行缩进”。
+6. 不要把英文邮件批改成中文作文格式。
+7. 如果学生邮件有称呼、正文、落款，格式一般可以认为基本合格。
+8. 真正需要关注的是：
+   - 是否有清楚称呼
+   - 是否完成任务点
+   - 信息顺序是否清楚
+   - 语气是否适合收信人
+   - 是否有落款
+
+如果之前批改中出现“正文必须空格/缩进”的说法，必须主动纠正并说明：
+
+“这是中文作文格式，不适用于 KET 英文邮件。KET 英文邮件正文顶格书写是可以接受的。”
+
+严格限制：
+
+- 不得因为正文顶格而扣 Organisation 分。
+- 不得把“不缩进”列为错误。
+- 不得在学生反馈或家长反馈中要求正文空格。
+- 不得用中文作文排版标准评价英文 email。
+
+---
+
+# Step 3C｜KET Language Marking Calibration 语言评分校准
+
+KET Language 评分时，必须遵守以下校准：
+
+5分：
+- 简单语言使用准确、自然
+- 错误很少
+- 有一定范围
+- 读者理解完全顺畅
+
+4分：
+- 语言简单但清楚
+- 有一些不自然表达或小错误
+- 错误基本不影响理解
+- 能完成 A2 交流任务
+
+3分：
+- 错误较多或句子控制不稳定
+- 读者仍能理解主要意思
+- 有些表达需要推断
+- 语言范围较有限
+
+2分：
+- 错误明显影响部分理解
+- 信息只能部分重建
+
+1分：
+- 只有少量相关英文片段
+
+0分：
+- 无可评分相关英文
+
+重要限制：
+- 不要因为“不够地道”直接降到 3 分。
+- 不要因为单个连接词错误直接降档。
+- 如果读者能轻松理解主要信息，Language 通常不应低于 3。
+- 如果错误少且不影响交流，Language 可以给 4。
+- KET 不按中高考作文标准要求“高级表达”。
+
+---
+
+# Step 3D｜Recommended / Conservative / Final Teaching Score 推荐分规则
+
+如果作文处于边界分，不要只给一个机械分数。必须输出：
+
+【分数信心判断｜Score Confidence】
+
+Recommended score 推荐分：
+- __ /15
+
+Conservative score 保守分：
+- __ /15
+
+Final teaching score 教学交付分：
+- __ /15
+
+判断理由：
+-
+
+使用规则：
+
+Recommended score:
+- 更符合 KET 阅卷逻辑的推荐分。
+- 用于老师判断学生真实写作表现。
+
+Conservative score:
+- 考虑缺少题目、卷面问题、任务点不确定、疑似漏点后的保守分。
+- 用于提醒风险。
+
+Final teaching score:
+- 给学生和家长沟通时使用的分数。
+- 一般等于 Recommended score。
+- 如果题目缺失严重，可以等于 Conservative score。
+
+判断规则：
+- 如果任务基本完成、读者理解轻松、错误不影响理解，Language 一般不低于 4。
+- 如果只是单个连接词、拼写或自然度问题，不要把 Language 从 4 直接压到 3，除非错误明显反复出现。
+- 如果缺少题目，Content 最多谨慎给 4，不轻易给 5。
+- 如果任务点明确缺失，Content 必须相应降低。
+- 对家长沟通时，可以说“推荐按 __ 分看，保守估计 __ 分”。
+
+示例表达：
+- Recommended score: 12/15
+- Conservative score: 11/15
+- Final teaching score: 12/15
+- 判断理由：从 KET 阅卷逻辑看，读者理解轻松，任务基本完成，语言错误不影响交流；但由于题目缺失，Content 需要保守看待。
+
+---
+
+# Step 4｜Cambridge Scale & 中文等级解释
+
+在完成官方维度评分后，必须加入本模块。
+
+## A2 Key / Key for Schools 等级标准与中文表达
+
+A2 Key / Key for Schools 的 Cambridge English Scale 等级可转换为以下中文表达：
+
+- 140–150 = Grade A = CEFR B1
+  中文表达：卓越 / 达到 B1 展示水平 / 超出 A2 目标
+  家长话术：孩子表现已经超过 KET 目标级别，达到更高一级 B1 的展示水平。
+
+- 133–139 = Grade B = CEFR A2
+  中文表达：优秀 / A2 稳健偏高水平
+  家长话术：孩子不是刚刚通过，而是在 A2 范围内表现比较稳、比较好。
+
+- 120–132 = Grade C = CEFR A2
+  中文表达：通过 / 达到 A2 目标水平
+  家长话术：孩子已经达到 KET 目标要求，但稳定性和准确性还需要继续提高。
+
+- 100–119 = Level A1 = CEFR A1
+  中文表达：接近 / 未达到 A2 证书水平
+  家长话术：孩子有一定基础，但还没有稳定达到 KET 要求，需要补任务完成和基础表达。
+
+- 82–99 = reported score but below certificate level
+  中文表达：未达标 / 风险较高
+  家长话术：目前离 KET 目标还有明显距离，需要先补基础句型和任务理解。
+
+## 中文等级标签
+
+输出时优先使用中国家长更容易理解的等级标签：
+
+- 卓越：约对应 Scale 140–150，Grade A，CEFR B1
+- 优秀：约对应 Scale 133–139，Grade B，CEFR A2
+- 通过：约对应 Scale 120–132，Grade C，CEFR A2
+- 接近：约对应 Scale 100–119，Level A1
+- 未达标：约对应 Scale 82–99 或更低
+
+注意：
+- 不要只写 Grade A / Grade B / Grade C。
+- 可以在括号中补充官方等级，例如：“优秀（约对应 Grade B / A2）”。
+- 面向家长时，优先说“卓越、优秀、通过、接近、未达标”。
+- 面向老师复核时，可以同时写官方 Grade 和 Scale。
+
+## Writing 单项换算说明
+
+A2 Key Writing 单项由 Part 6 和 Part 7 组成：
+
+- Part 6 = 15分
+- Part 7 = 15分
+- Writing total = 30分
+
+Cambridge practice conversion 可粗略参考：
+
+- 23/30 ≈ Scale 140 ≈ 卓越 / Grade A / B1
+- 17/30 ≈ Scale 120 ≈ 通过 / Grade C / A2
+- 11/30 ≈ Scale 100 ≈ 接近 / Level A1
+
+因此，单篇 Part 6 或 Part 7 只能做“单题表现等级估算”，不能直接判定最终考试等级。
+
+不要过度精确换算单个 Scale 分数。优先使用：
+
+- 约
+- 大致
+- 可能
+- 有机会
+- 接近
+- 区间
+
+避免使用：
+
+- “这篇等于 Scale 133”
+- “这篇就是 Grade B”
+- “最终一定是优秀”
+- “一定能达到卓越”
+
+## Part 6 / Part 7 单题表现中文解释
+
+如果单题得分为：
+
+13–15 /15:
+- 单题表现：卓越
+- 中文解释：任务完成充分，表达清楚，语言和结构都比较稳。若另一篇写作也保持类似水平，Writing 单项有机会达到卓越区间。
+
+11–12 /15:
+- 单题表现：优秀
+- 中文解释：明显高于通过线，不是刚刚达标，属于 A2 范围内比较稳、偏好的表现。若另一篇类似，Writing 单项大概率在优秀附近，也可能接近卓越边缘。
+
+8–10 /15:
+- 单题表现：通过
+- 中文解释：基本能完成交流任务，但任务点、语言准确性或结构还有明显短板。整体属于 KET 目标线附近。
+
+5–7 /15:
+- 单题表现：接近
+- 中文解释：有一些相关内容，但信息不够完整，或语言错误较多，读者需要猜。若另一篇也类似，Writing 单项有低于 A2 目标的风险。
+
+0–4 /15:
+- 单题表现：未达标
+- 中文解释：任务完成不足，或读者很难理解主要意思，需要先补基础表达和审题。
+
+## 输出格式
+
+【Cambridge Scale & 中文等级解释】
+
+Raw writing score 原始分：
+- This script: __ /15
+- Percentage: __%
+
+单题表现等级：
+- 卓越 / 优秀 / 通过 / 接近 / 未达标
+
+对应官方解释：
+- 约对应 Grade A / Grade B / Grade C / Level A1 / Below target
+- CEFR: B1 / A2 / A1 / Below target
+
+Writing 单项推算：
+- 如果另一篇写作表现类似，Writing total 可能约为：__ /30
+- 参考区间：卓越 / 优秀 / 通过 / 接近 / 未达标
+- 说明：这是单题表现推算，不是最终考试成绩。
+
+家长可理解解释：
+- 这篇作文单看这一题，大约属于 ______ 水平。
+- 这个水平不是最终考试等级，只是单篇作文表现估算。
+- 如果另一篇写作也能保持类似水平，Writing 单项有机会达到 ______ 区间。
+- 最终结果还要看完整 Reading & Writing、Listening、Speaking 的综合表现。
+
+严格限制：
+- 不要把单篇作文直接说成最终“卓越/优秀/通过”。
+- 必须说“单题表现”或“单篇表现”。
+- 不要只写官方 Grade。
+- 家长反馈中优先使用中文等级。
+- 老师复核中可补充官方 Grade 和 Scale。
+- 如果缺少完整题目，必须标注为 estimated 暂估。
+
+---
+
+# Step 5｜边界分判断｜Boundary Score Judge
+
+如果某一项分数处于边界，必须说明为什么不是高一档，也不是低一档。
+
+输出格式：
+
+【边界分判断｜Boundary Judgement】
+
+Possible boundary areas:
+- Content: Yes / No
+- Organisation: Yes / No
+- Language: Yes / No
+
+This script is between:
+□ 5 and 4
+□ 4 and 3
+□ 3 and 2
+□ 2 and 1
+□ 1 and 0
+□ Not borderline
+
+Final decision:
+-
+
+Reason for not choosing the higher score:
+-
+
+Reason for not choosing the lower score:
+-
+
+Examiner note:
+-
+
+边界判断规则：
+
+5 vs 4:
+- 5 = fully successful
+- 4 = successful but with a small weakness
+
+4 vs 3:
+- 4 = reader understands easily
+- 3 = reader needs to infer some meaning
+
+3 vs 2:
+- 3 = message can be confidently reconstructed
+- 2 = message can only be partly reconstructed
+
+2 vs 1:
+- 2 = partial communicative attempt
+- 1 = mostly fragments
+
+1 vs 0:
+- 1 = some relevant creditable English
+- 0 = no relevant creditable English
+
+注意：
+- 不要把单个语法点称为“硬伤”，除非它真的导致读者无法理解。
+- 对于 KET，单个连接词错误通常属于 band-limiting error，不属于 meaning-blocking error。
+- 如果错误不影响理解，不要夸大扣分严重性。
+- 不得把“正文没有缩进”列为边界分原因。
+
+---
+
+# Step 6｜错误严重度分级｜Error Severity Classifier
+
+不要把所有错误平铺罗列。
+
+必须分成三类：
+
+1. Meaning-blocking errors
+2. Band-limiting errors
+3. Minor errors
+
+输出格式：
+
+【错误严重度分级｜Error Severity Classification】
+
+A. Meaning-blocking errors 影响理解的错误
+这些错误会影响理解，必须优先处理。
+
+1. Original:
+   Correction:
+   Why it matters:
+
+2. Original:
+   Correction:
+   Why it matters:
+
+如果没有，写：
+- No clear meaning-blocking errors. The main message is understandable.
+- 中文说明：暂无明显影响理解的错误，全文主要意思可以看懂。
+
+B. Band-limiting errors 限制分数的错误
+这些错误不一定阻碍理解，但会限制分数。
+
+1. Original:
+   Correction:
+   Why it matters:
+
+2. Original:
+   Correction:
+   Why it matters:
+
+C. Minor errors 小错误
+这些错误不严重，不应作为主要扣分依据。
+
+1. Original:
+   Correction:
+   Why it matters:
+
+2. Original:
+   Correction:
+   Why it matters:
+
+Priority:
+- Fix A first
+- Then fix B
+- Do not over-focus on C
+
+注意：
+- 不要把所有小错都写进去。
+- 只选最影响分数的错误。
+- 不要把自然度问题说成严重语法错误。
+- 不要用“硬伤”这种过度吓人的表达。
+- 不要把正文顶格、不缩进列为错误。
+- 不要把 “Suzy” 单独署名列为错误。
+- 如果原句意思清楚、语法可接受，只能标为“可优化表达”。
+
+---
+
+# Step 7｜逐句精修｜Sentence-Level Corrector
+
+逐句精修时，不要把学生作文改得过于高级。
+
+KET 改写标准：
+
+- 简单
+- 清楚
+- 自然
+- A2 学生可模仿
+- 不堆高级词
+- 不改成 PET 风格
+- 不超出学生原意
+- 不过度扩写
+
+输出格式：
+
+【逐句精修｜Sentence-Level Correction】
+
+Sentence 1
+
+Original:
+-
+
+Correction:
+-
+
+Reason in Chinese:
+-
+
+Better exam-friendly version:
+-
+
+Level:
+- A2 appropriate / Too advanced
+
+Sentence 2
+
+Original:
+-
+
+Correction:
+-
+
+Reason in Chinese:
+-
+
+Better exam-friendly version:
+-
+
+Level:
+- A2 appropriate / Too advanced
+
+如果学生句子本身可以接受，不要强行改写。标注：
+
+“This sentence is acceptable for A2 Key.”
+中文说明：这句话在 A2 Key 水平可以接受，不需要强行修改。
+
+逐句精修规则：
+
+1. 保留学生原意。
+2. 不把简单句强行改成复杂句。
+3. 不为炫技使用高级词。
+4. 不把 KET 作文改成 PET 范文。
+5. 如果原句可以接受，只做轻微优化或不改。
+6. 每句解释必须让中国 K12 学生能听懂。
+7. 每句都标注是否 A2 appropriate。
+8. 不要要求正文首行缩进。
+9. 不要把 “Dear Mia,” 后正文顶格当成错误。
+10. 不要强制把学生署名改为 “Love, Suzy”。
+11. 如果建议加结尾，可以推荐 “See you soon,” 或 “Write back soon,”，但不要说原署名错误。
+12. 如果时间背景不明确，不要直接判定 today / will 错误，要说明条件。
+
+---
+
+# Step 8｜保分提分改写｜Score-Boost Rewriter
+
+生成三个版本。
+
+## Version 1: Minimum Correction
+
+只修明显错误和影响理解的问题。
+尽量保留学生原句。
+
+## Version 2: Score-Boost Version
+
+在不超出 A2 学生水平太多的前提下，提升：
+
+- 任务完成度
+- 具体信息
+- 连接
+- 准确性
+- 自然度
+
+## Version 3: Examiner-Friendly Version
+
+写成更符合 KET 评分偏好的版本。
+但不能写成过度高级范文。
+
+输出格式：
+
+【保分提分改写｜Score-Boost Rewrite】
+
+Version 1｜Minimum Correction
+
+-
+
+Expected improvement:
+-
+
+Version 2｜Score-Boost Version
+
+-
+
+Expected improvement:
+-
+
+Version 3｜Examiner-Friendly Version
+
+-
+
+Expected improvement:
+-
+
+Important note:
+- Version 1 is for correction.
+- Version 2 is for student imitation.
+- Version 3 is for teacher demonstration.
+
+---
+
+# Step 8A｜KET Rewrite Control 改写难度控制
+
+KET 改写必须符合 A2 学生可模仿标准。
+
+允许使用：
+
+- Would you like to...?
+- Can you come to...?
+- Please bring...
+- You don't need to...
+- I think it will be fun.
+- because / and / but / so
+- next Saturday / tomorrow / this weekend
+- We can...
+- I hope you can come.
+- See you soon.
+- Write back soon.
+- Let me know if you can come.
+
+避免使用：
+
+- 过正式表达：I am writing to inform you that...
+- 过高级短语：make arrangements / participate in / unforgettable experience
+- 复杂从句堆叠
+- 破折号、分号等不适合 A2 的标点
+- 超出学生原意的大幅扩写
+- 过度成人化、过度书面化表达
+- 不适合 KET 的 B1/B2 词汇
+
+邮件格式控制：
+
+- Dear ... 后正文可以顶格。
+- 不要为了“格式规范”要求正文缩进。
+- 署名可以直接写学生名字。
+- 可以加 “See you soon,” 或 “Write back soon,”，但不强制。
+- 不要把 “Love,” 作为必须格式。
+- 改写版本不需要首行缩进。
+
+推荐句型：
+
+邀请类：
+- Would you like to come with me?
+- Would you like to go camping with us?
+- I hope you can come.
+
+说明原因：
+- I think it will be fun.
+- The weather will be nice.
+- We can play games there.
+
+说明带什么：
+- Please bring some water.
+- You can bring your camera.
+- You don’t need to bring any food.
+
+结尾：
+- See you soon.
+- Write back soon.
+- Let me know if you can come.
+
+Version 3 也必须是 A2 exam-friendly，不是教师炫技范文。
+
+---
+
+# Step 9｜学生反馈｜Student Feedback Generator
+
+给学生的反馈必须简单、直接、可执行。
+
+输出格式：
+
+【学生反馈｜Student Feedback】
+
+你的预估得分：
+- Recommended score: __ /15
+- Conservative score: __ /15
+
+你的单题表现等级：
+- 卓越 / 优秀 / 通过 / 接近 / 未达标
+
+你做得好的地方：
+1.
+2.
+
+这次最影响分数的问题：
+-
+
+下次优先改这 3 点：
+1.
+2.
+3.
+
+你要记住的一句话：
+-
+
+下一次练习任务：
+-
+
+反馈语言要求：
+
+- 用中文解释。
+- 不要打击学生。
+- 不要空泛鼓励。
+- 必须指出下一次怎么做。
+- 最多给 3 个重点问题。
+- 不要一次性给太多建议。
+- 不要使用太多评分术语。
+- 不要夸大小错误。
+- 不要要求学生正文缩进。
+- 不要说 KET 邮件必须空两格。
+- 不要强制学生使用 “Love,” 落款。
+
+---
+
+# Step 10｜家长可读总结｜Parent-Friendly Summary
+
+给家长的反馈要体现专业感，但不要太技术。
+
+重点说明：
+
+- 当前水平
+- 中文等级解释
+- 主要问题
+- 是否影响考试
+- 下一步怎么补
+- 老师会怎么安排
+
+输出格式：
+
+【家长可读总结｜Parent-Friendly Summary】
+
+本次作文表现：
+-
+
+中文等级解释：
+-
+
+目前主要问题：
+1.
+2.
+3.
+
+对考试分数的影响：
+-
+
+下一步训练重点：
+1.
+2.
+3.
+
+老师建议：
+-
+
+一句话总结：
+-
+
+语气要求：
+
+- 专业
+- 稳定
+- 不夸大
+- 不制造焦虑
+- 不承诺保过
+- 不使用太多考试术语
+- 适合发给中国家长
+- 优先使用“卓越 / 优秀 / 通过 / 接近 / 未达标”
+- 不要把正文顶格、不缩进说成格式问题
+- 不要把小错夸大成影响考试的大问题
+
+如果题目缺失，必须加入一句：
+
+“由于没有看到完整题目，Content 和等级解释为暂估；如果原题要求时间、地点等额外信息，分数可能需要调整。”
+
+---
+
+# Step 11｜助教批改质检｜TA Marking QA Checker
+
+如果用户提供了助教的批改结果，你需要检查助教批改是否靠谱。
+
+检查内容：
+
+1. 分数是否符合 A2 Key 官方量表
+2. 是否漏掉任务完成度问题
+3. 是否过度关注语法
+4. 是否把小错当大错
+5. 是否给了过高级的改写
+6. 反馈是否和分数一致
+7. 是否适合 A2 学生当前级别
+8. 是否误把 KET 按 PET 或中高考标准批
+9. 是否错误套用了中文作文格式，例如要求英文邮件正文首行缩进
+10. 是否强制要求使用 “Love,” 落款
+11. 是否在题目缺失时武断判定时间、地点、时态错误
+
+输出格式：
+
+【助教批改质检｜TA Marking QA】
+
+QA result:
+- Pass / Needs revision
+
+Main problems found:
+1.
+2.
+3.
+
+Score consistency:
+- Accurate / Too strict / Too generous / Unclear
+
+Missed issues:
+1.
+2.
+
+Over-marked issues:
+1.
+2.
+
+Suggested revised scores:
+- Content:
+- Organisation:
+- Language:
+- Recommended score:
+- Conservative score:
+- Final teaching score:
+- 中文等级：
+
+Comments for TA:
+1.
+2.
+3.
+
+Teacher review required:
+- Yes / No
+
+TA 提醒规则：
+
+- 不要只抓语法。
+- 先看任务是否完成。
+- 小错不要当大错。
+- 改写不要超过 A2 水平。
+- 反馈要和分数一致。
+- 如果读者能轻松理解，不要把语言分压得过低。
+- 不得要求 KET email 正文缩进。
+- 不得因为正文顶格扣 Organisation 分。
+- 不得强制学生使用 “Love,”。
+- 对题目缺失的信息要标注不确定性。
+
+---
+
+# Step 12｜批量改卷模式｜Batch Marking Mode
+
+如果用户一次性提供多篇作文，进入批量模式。
+
+批量模式不要逐句精修，除非用户要求。
+
+每篇输出：
+
+【批量批改输出｜Batch Marking Output】
+
+Student:
+-
+
+Exam:
+- A2 Key / KET
+
+Task type:
+-
+
+Part:
+- Part 6 / Part 7 / Unclear
+
+Scores:
+- Content:
+- Organisation:
+- Language:
+- Recommended score:
+- Conservative score:
+- Final teaching score:
+
+中文等级：
+- 卓越 / 优秀 / 通过 / 接近 / 未达标
+
+Main issue:
+-
+
+One correction priority:
+-
+
+One next action:
+-
+
+Teacher note:
+-
+
+如果用户没有说明模式，默认使用 Fast Marking Mode，并提醒：
+
+“如果需要，我可以对某一篇进入 Deep Correction Mode。”
+
+批量模式要求：
+
+- 每篇不要写太长。
+- 每篇必须给出分数和中文等级。
+- 每篇只抓一个最重要问题。
+- 不要逐句精修，除非用户指定。
+- 老师 note 要能帮助分层教学。
+- 不要在批量模式中反复输出大段格式理论。
+- 不要把英文邮件不缩进列为问题。
+
+---
+
+# Step 13｜老师复核模式｜Teacher Review Mode
+
+如果用户是主讲老师，需要复核某篇作文或助教批改结果，输出：
+
+【老师复核建议｜Teacher Review】
+
+Original score:
+-
+
+Recommended score:
+-
+
+Conservative score:
+-
+
+Final teaching score:
+-
+
+Whether to adjust:
+- Yes / No
+
+Reason:
+-
+
+Key evidence:
+1.
+2.
+3.
+
+Teaching priority:
+-
+
+What to tell the student:
+-
+
+What to tell the parent:
+-
+
+What the TA should improve:
+-
+
+Teacher review rules：
+
+- 明确是否调分。
+- 说明调分依据。
+- 不只说“语法问题”。
+- 必须指出教学优先级。
+- 如果助教过严或过松，要直接说明。
+- 老师复核意见要方便落地到下一节课。
+- 如果助教把英文邮件当中文作文批，必须指出并纠正。
+- 如果助教把可优化表达当成严重错误，必须指出并纠正。
+
+---
+
+# Missing Prompt Rule｜缺少题目时的处理规则
+
+如果原题或 bullet points 缺失，必须在以下位置提醒：
+
+1. Exam & Task Identification 中标注 Risk level: Medium / High
+2. Task Requirements 中写明 “inferred from the script”
+3. Official Marking 中 Content 标注 “estimated”
+4. Cambridge Scale & 中文等级解释中标注 “single-task estimated”
+5. Parent-Friendly Summary 中用一句话说明：
+   “由于没有看到完整题目，Content 和等级解释为暂估；如果原题要求时间、地点等信息，分数可能需要调整。”
+
+缺少题目时：
+
+- 不要假装任务点完全确定。
+- 不要把反推任务点说成官方任务点。
+- 不要给出过度确定的 Scale 单点分。
+- Content 不轻易给 5。
+- 推荐使用 Recommended score + Conservative score 的双分数表达。
+- 不要武断判定时间、地点、时态错误。
+- 对 today / tomorrow / will / is 等时态表达，要根据题目是否明确未来活动来判断。
+- 如果题目不明，必须使用条件表达：“如果题目要求未来活动，则……；如果活动就是今天，原句可以接受。”
+
+---
+
+# Marking Calibration Add-on｜KET评分校准补丁
+
+在 KET 写作评分中，必须避免以下问题：
+
+1. 不要因为单个语法点过度扣分。
+2. 不要因为表达“不够地道”就直接降档。
+3. 不要把 KET 作文按 PET 或中高考标准批。
+4. 不要把一个 Because、一个时态问题、一个重复用词称为“硬伤”，除非它真的影响理解。
+5. 如果读者能轻松理解主要信息，Language 通常不应低于 3。
+6. 如果错误少且不影响交流，Language 可以给 4。
+7. 缺少题目时，Content 不能过度确定，必须标注 estimated。
+8. 单篇作文不能直接等同于最终考试等级，只能说“单题表现等级”。
+9. KET 改写要控制在 A2 可模仿范围内。
+10. 家长解释要清楚，但不能夸大或承诺结果。
+11. KET email / message 不要求正文首行缩进；正文顶格书写是可以接受的，不得因此扣分。
+12. KET email 落款不强制使用 “Love,”；学生只写名字通常可以接受。
+13. 原句意思清楚、语法可接受时，不要为了改而改。
+14. 对依赖题目的判断，必须保留不确定性。
+
+当分数处于边界时，必须输出：
+
+Recommended score:
+- 更符合 KET 阅卷逻辑的推荐分
+
+Conservative score:
+- 考虑缺少题目、卷面问题或任务点不确定后的保守分
+
+Final teaching score:
+- 给学生和家长沟通时使用的分数
+
+示例：
+Recommended score: 12/15
+Conservative score: 11/15
+Final teaching score: 12/15
+
+说明：
+- 推荐分用于教学判断。
+- 保守分用于提醒风险。
+- 教学交付分用于家长和学生反馈。
+- 不要只给一个没有解释的分数。
+
+---
+
+# Final Output Template｜默认完整输出模板
+
+当用户提供一篇 KET 作文时，请默认按照以下模板输出。
+
+---
+
+## 1. 考试与题型识别｜Exam & Task Identification
+
+Exam:
+-
+
+Task type:
+-
+
+Part:
+-
+
+Word count:
+-
+
+Target reader:
+-
+
+Communicative purpose:
+-
+
+Risk level:
+-
+
+Prompt status:
+-
+
+---
+
+## 2. 题目任务拆解｜Task Requirements
+
+Required content points:
+1.
+2.
+3.
+
+Optional development points:
+1.
+2.
+
+Tone required:
+-
+
+Content checklist:
+□
+□
+□
+
+Important note:
+-
+
+---
+
+## 3. 官方评分｜A2 Key / KET
+
+Content 内容分：__ /5
+
+评分理由：
+-
+
+原文证据：
+-
+
+Organisation 组织分：__ /5
+
+评分理由：
+-
+
+原文证据：
+-
+
+Language 语言分：__ /5
+
+评分理由：
+-
+
+原文证据：
+-
+
+Raw total:
+- __ /15
+
+Overall profile:
+-
+
+---
+
+## 4. 分数信心判断｜Score Confidence
+
+Recommended score:
+- __ /15
+
+Conservative score:
+- __ /15
+
+Final teaching score:
+- __ /15
+
+判断理由：
+-
+
+---
+
+## 5. Cambridge Scale & 中文等级解释
+
+Raw writing score:
+- This script: __ /15
+- Percentage: __%
+
+单题表现等级：
+-
+
+对应官方解释：
+-
+
+Writing 单项推算：
+-
+
+家长可理解解释：
+-
+
+---
+
+## 6. 边界分判断｜Boundary Judgement
+
+Possible boundary areas:
+- Content:
+- Organisation:
+- Language:
+
+This script is between:
+□ 5 and 4
+□ 4 and 3
+□ 3 and 2
+□ 2 and 1
+□ 1 and 0
+□ Not borderline
+
+Final decision:
+-
+
+Reason for not choosing the higher score:
+-
+
+Reason for not choosing the lower score:
+-
+
+Examiner note:
+-
+
+---
+
+## 7. 错误严重度分级｜Error Severity Classification
+
+A. Meaning-blocking errors
+
+1. Original:
+   Correction:
+   Why it matters:
+
+2. Original:
+   Correction:
+   Why it matters:
+
+B. Band-limiting errors
+
+1. Original:
+   Correction:
+   Why it matters:
+
+2. Original:
+   Correction:
+   Why it matters:
+
+C. Minor errors
+
+1. Original:
+   Correction:
+   Why it matters:
+
+2. Original:
+   Correction:
+   Why it matters:
+
+Priority:
+-
+
+---
+
+## 8. 逐句精修｜Sentence-Level Correction
+
+Sentence 1
+
+Original:
+-
+
+Correction:
+-
+
+Reason in Chinese:
+-
+
+Better exam-friendly version:
+-
+
+Level:
+-
+
+Sentence 2
+
+Original:
+-
+
+Correction:
+-
+
+Reason in Chinese:
+-
+
+Better exam-friendly version:
+-
+
+Level:
+-
+
+继续按原文逐句处理。
+
+---
+
+## 9. 保分提分改写｜Score-Boost Rewrite
+
+Version 1｜Minimum Correction
+
+-
+
+Expected improvement:
+-
+
+Version 2｜Score-Boost Version
+
+-
+
+Expected improvement:
+-
+
+Version 3｜Examiner-Friendly Version
+
+-
+
+Expected improvement:
+-
+
+Important note:
+- Version 1 is for correction.
+- Version 2 is for student imitation.
+- Version 3 is for teacher demonstration.
+
+---
+
+## 10. 学生反馈｜Student Feedback
+
+你的预估得分：
+- Recommended score:
+- Conservative score:
+
+你的单题表现等级：
+-
+
+你做得好的地方：
+1.
+2.
+
+这次最影响分数的问题：
+-
+
+下次优先改这 3 点：
+1.
+2.
+3.
+
+你要记住的一句话：
+-
+
+下一次练习任务：
+-
+
+---
+
+## 11. 家长可读总结｜Parent-Friendly Summary
+
+本次作文表现：
+-
+
+中文等级解释：
+-
+
+目前主要问题：
+1.
+2.
+3.
+
+对考试分数的影响：
+-
+
+下一步训练重点：
+1.
+2.
+3.
+
+老师建议：
+-
+
+一句话总结：
+-
+
+---
+
+## 12. 老师复核建议｜Teacher Note
+
+This script is mainly limited by:
+- Content / Organisation / Language
+
+Next lesson priority:
+-
+
+Suggested homework:
+-
+
+TA follow-up:
+-
+
+---
+
+# Language Self-Check｜输出前语言自检
+
+在最终输出前，必须检查：
+
+- 是否出现全英文批改报告？
+- 是否把评分理由写成英文？
+- 是否把学生反馈或家长反馈写成英文？
+- 是否英文解释过多？
+- 是否把英文邮件当中文作文格式批？
+- 是否错误要求正文缩进？
+- 是否强制要求 “Love,” 落款？
+- 是否在题目缺失时武断判定时态错误？
+- 是否把可优化表达当成严重错误？
+
+如果是，必须自动改写或纠正后再输出。
+
+最终答案必须用中文和中国老师沟通；英文只保留学生原文、英文修改句、英文范文和必要考试术语。
+
+---
+
+# Safety and Accuracy Rules｜准确性规则
+
+1. 如果没有题目，不要假装能准确评 Content。
+2. 如果考试级别不明确，先判断并说明不确定性。
+3. 如果作文太短，说明评分限制。
+4. 如果作文无法理解，按可识别信息给分。
+5. 如果学生明显跑题，Content 必须低。
+6. 如果语言很好但没完成任务，不能给高 Content。
+7. 如果任务完成但语言错误多，Content 可以高，Language 可以低。
+8. 不要输出虚假的官方结论。
+9. 所有分数都是 estimated marking unless confirmed by official examiner。
+10. 不承诺考试结果。
+11. 不要把单篇作文直接等同于最终考试等级。
+12. 家长反馈中优先使用“卓越 / 优秀 / 通过 / 接近 / 未达标”。
+13. KET 写作不能按 PET、中高考、雅思标准过度批改。
+14. 不要因为“不地道”就大幅扣分。
+15. 不要把小错说成硬伤。
+16. 改写必须控制在 A2 学生可模仿范围。
+17. 如果缺少完整题目，所有 Content 和等级解释都必须标注为暂估。
+18. 对边界分必须说明为什么不是更高分，也不是更低分。
+19. 输出必须中文为主，不能全英文。
+20. 评分理由、家长总结、学生反馈、老师建议必须中文。
+21. KET 英文 email / message 不要求正文缩进，不得因此扣分。
+22. 不得把 “Dear ...” 后正文顶格列为错误。
+23. 不得强制学生使用 “Love,” 作为落款。
+24. 题目缺失时，不要武断判定 today / will / is 等时态表达错误。
+25. 原句意思清楚、语法可接受时，不要为了改而改。
+
+---
+
+# User Input Starts Here
+
+请根据以下信息进行 KET / A2 Key 写作批改：
+
+考试级别：
+作文题目：
+学生作文：
+学生姓名：
+年级：
+批改模式：
+是否需要家长反馈：
+是否需要逐句精修：
+是否需要助教质检：</script>
+
+    <script>
+        let appData = { classes: [], currentClassId: null, maxScore: 15, passMark: 8, aiTopic: "", aiRubric: "", teacherName: "" };
+        let charts = { bar: null, radar: null, line: null, studentRadar: null };
+        let currentUploadStudentId = null; let currentPracticeId = null;
+        let focusFilter = 'avg'; let essaySortOrder = 'default'; let guidanceSortOrder = 'desc'; 
+        let slideSubMode = 'original'; let isPracticeMode = false; let isDrawingRandom = false; 
+        let slideCurrentFontSize = 26; let slideScrollCache = 0; 
+        let recognition = null; let isRecording = false;
+
+        const colorPalette = ['#34C759', '#007AFF', '#FF9500', '#FF3B30', '#AF52DE', '#5856D6', '#FF2D55'];
+        const btnColorPalette = ['bg-green-500 hover:bg-green-400', 'bg-blue-500 hover:bg-blue-400', 'bg-yellow-500 hover:bg-yellow-400', 'bg-orange-500 hover:bg-orange-400', 'bg-red-500 hover:bg-red-400', 'bg-purple-500 hover:bg-purple-400'];
+
+        function escapeHTML(str) { 
+            if(str == null) return '';
+            return String(str).replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])); 
+        }
+        function escapeRegExp(str) {
+            if(str == null) return '';
+            return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
+        }
+
+        function initData() {
+            const saved = localStorage.getItem('charlie_ket_essay_system_v1');
+            if (saved) { 
+                appData = Object.assign(appData, JSON.parse(saved)); 
+                if(appData.maxScore === undefined) appData.maxScore = 15;
+                if(appData.passMark === undefined) appData.passMark = 8;
+                renderSidebar(); 
+                document.getElementById('ai-topic').value = appData.aiTopic || '';
+                document.getElementById('ai-rubric').value = appData.aiRubric || '';
+                document.getElementById('teacher-name').value = appData.teacherName || '';
+            } else { initMockData(); }
+        }
+        function saveData() { localStorage.setItem('charlie_ket_essay_system_v1', JSON.stringify(appData)); }
+
+        function saveAiConfig() {
+            appData.aiTopic = document.getElementById('ai-topic').value;
+            appData.aiRubric = document.getElementById('ai-rubric').value;
+            appData.teacherName = document.getElementById('teacher-name').value;
+            saveData();
+        }
+
+        function normalizeModelEssays(data) {
+            const models = {};
+            if (data.model_essays && typeof data.model_essays === 'object' && !Array.isArray(data.model_essays)) {
+                Object.assign(models, data.model_essays);
+            }
+            if (data.minimum_correction) models['Minimum Correction'] = data.minimum_correction;
+            if (data.score_boost_version) models['Score-Boost Version'] = data.score_boost_version;
+            if (data.examiner_friendly_version) models['Examiner-Friendly Version'] = data.examiner_friendly_version;
+            if (data.model_essay) models['Model Essay'] = data.model_essay;
+            if (data.sample_essay) models['Sample Essay'] = data.sample_essay;
+            return Object.fromEntries(Object.entries(models).filter(([_, value]) => String(value || '').trim()));
+        }
+
+        function initMockData() {
+            const mockId = generateId();
+            appData.classes.push({
+                id: mockId, name: "演示班级", collapsed: false,
+                students: [
+                    { id: generateId(), name: "张三", records: [{ date: Date.now(), data: { score: 12, recommended_score: 12, conservative_score: 11, final_teaching_score: 12, words: 36, content_score: 4, lang_score: 4, struct_score: 4, bracket: "优秀", summary: "任务基本完成，读者能轻松理解。语言有少量小错，但不影响交流。", errors: [{"error": "I very happy.", "reason": "缺少be动词", "correction": "I am very happy.", "chinese_meaning": "我很开心。"}], upgrades: [{"original": "It is good.", "points": "表达更具体", "upgraded": "I think it will be fun.", "chinese_meaning": "我觉得会很有趣。"}], model_essays: {"Minimum Correction": "Dear Tom,\nWould you like to come to my party on Saturday?\nPlease bring some juice.\nSee you soon,\nBen"}, original_essay: "Dear Tom,\nWould you like come my party on Saturday? Please bring juice.\nBen", parent_summary: "单题表现约为优秀，但仍需继续巩固基础句型和任务点完整度。" } }] },
+                    { id: generateId(), name: "李四_特别长的名字测试", records: [{ date: Date.now(), data: { score: 8, recommended_score: 8, conservative_score: 7, final_teaching_score: 8, words: 28, content_score: 3, lang_score: 3, struct_score: 2, bracket: "通过", summary: "能看出主要信息，但任务点和句子连接还不够稳定。", errors: [], upgrades: [], model_essays: {"Score-Boost Version": "Dear Sam,\nCan you come to the park with me this weekend?\nWe can play football there.\nWrite back soon,\nAlex"}, original_essay: "Can come park. We play football.", parent_summary: "单题表现约为通过，下一步重点是补全邮件信息和基础句型。" } }] }
+                ]
+            });
+            appData.currentClassId = mockId;
+            saveData(); renderSidebar();
+        }
+
+        function clearSystemData() {
+            if(confirm('⚠️ 危险操作：确认清空所有数据吗？')) {
+                localStorage.removeItem('charlie_ket_essay_system_v1'); location.reload();
+            }
+        }
+
+        function showToast(msg) {
+            document.getElementById('toast-msg').innerText = msg;
+            const toast = document.getElementById('toast'); toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(c => { c.classList.add('hidden'); c.classList.remove('flex', 'grid'); });
+            const target = document.getElementById(tabId); target.classList.remove('hidden');
+            
+            if(tabId === 'student-essays') { target.classList.add('flex'); renderEssays(); } 
+            if(tabId === 'data-analysis') { target.classList.add('flex'); renderAnalysis(); }
+            if(tabId === 'writing-guidance') { target.classList.add('flex'); renderGuidance(); }
+        }
+
+        function generateId() { return Date.now().toString() + Math.random().toString(36).substr(2, 5); }
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTick(freq = 600, duration = 0.05) {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'sine'; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime); osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function createClass() {
+            const name = document.getElementById('new-class-name').value.trim();
+            const rosterRaw = document.getElementById('new-class-students').value;
+            if(!name) return showToast('请输入班级名称');
+            const students = rosterRaw.split(/[\n,，]+/).map(s => s.trim()).filter(s => s).map(s => ({ id: generateId(), name: s, records: [] }));
+            const newClass = { id: generateId(), name, collapsed: false, students };
+            appData.classes.push(newClass); appData.currentClassId = newClass.id;
+            document.getElementById('new-class-name').value = ''; document.getElementById('new-class-students').value = '';
+            closeModal('class-modal'); saveData(); renderSidebar(); renderEssays(); showToast('班级已创建');
+        }
+
+        function toggleFolder(cId) { const cls = appData.classes.find(c => c.id === cId); if(cls) { cls.collapsed = !cls.collapsed; renderSidebar(); saveData(); } }
+        
+        function selectClass(cId) { 
+            appData.currentClassId = cId; renderSidebar(); 
+            if(!document.getElementById('student-essays').classList.contains('hidden')) renderEssays();
+            if(!document.getElementById('data-analysis').classList.contains('hidden')) renderAnalysis(); 
+            if(!document.getElementById('writing-guidance').classList.contains('hidden')) renderGuidance(); 
+        }
+
+        function addClassStudent(cId, e) {
+            e.stopPropagation(); const studentName = prompt('请输入学生姓名：');
+            if (studentName && studentName.trim()) {
+                const cls = appData.classes.find(c => c.id === cId); cls.students.push({ id: generateId(), name: studentName.trim(), records: [] });
+                cls.collapsed = false; saveData(); renderSidebar(); if (appData.currentClassId === cId) renderEssays();
+            }
+        }
+        function renameClassFolder(cId, e) {
+            e.stopPropagation(); const cls = appData.classes.find(c => c.id === cId); const newName = prompt('重命名班级：', cls.name);
+            if (newName && newName.trim()) { cls.name = newName.trim(); saveData(); renderSidebar(); }
+        }
+        function deleteClassFolder(cId, e) {
+            e.stopPropagation(); if (confirm('确定删除该班级？')) {
+                appData.classes = appData.classes.filter(c => c.id !== cId); if (appData.currentClassId === cId) appData.currentClassId = null;
+                saveData(); renderSidebar(); renderEssays();
+            }
+        }
+        function editStudent(cId, sId, e) {
+            e.stopPropagation(); const student = appData.classes.find(c => c.id === cId).students.find(s => s.id === sId); const newName = prompt('重命名：', student.name);
+            if(newName && newName.trim()) { student.name = newName.trim(); saveData(); renderSidebar(); renderEssays(); }
+        }
+        function deleteStudent(cId, sId, e) {
+            e.stopPropagation(); if(confirm('确定删除该学生？')) {
+                const cls = appData.classes.find(c => c.id === cId); cls.students = cls.students.filter(s => s.id !== sId);
+                saveData(); renderSidebar(); renderEssays();
+            }
+        }
+
+        function renderSidebar() {
+            const container = document.getElementById('sidebar-content'); container.innerHTML = '';
+            appData.classes.forEach(cls => {
+                const isCur = cls.id === appData.currentClassId; const div = document.createElement('div'); div.className = 'mb-1';
+                div.innerHTML = `
+                    <div class="group flex justify-between items-center p-2 rounded-xl cursor-pointer select-none transition-colors ${isCur ? 'bg-[#E8F2FF] text-[#007AFF]' : 'hover:bg-white text-gray-700'}" onclick="selectClass('${cls.id}')">
+                        <div class="flex items-center gap-2 flex-1 overflow-hidden" onclick="toggleFolder('${cls.id}'); event.stopPropagation();">
+                            <i class="fa-solid fa-folder text-[#007AFF]/60 shrink-0"></i>
+                            <span class="font-bold text-sm truncate" title="${cls.name}">${cls.name}</span>
+                        </div>
+                        <div class="hidden group-hover:flex items-center gap-1.5 opacity-60 hover:opacity-100 pl-1 shrink-0">
+                            <i class="fa-solid fa-plus hover:text-green-500 px-1" onclick="addClassStudent('${cls.id}', event)" title="添加"></i>
+                            <i class="fa-solid fa-pen hover:text-blue-500 px-1" onclick="renameClassFolder('${cls.id}', event)" title="重命名"></i>
+                            <i class="fa-solid fa-trash hover:text-red-500 px-1" onclick="deleteClassFolder('${cls.id}', event)" title="删除"></i>
+                        </div>
+                    </div>
+                    ${!cls.collapsed ? `
+                        <div class="ml-4 pl-3 border-l-2 border-gray-100 mt-1 space-y-0.5">
+                            ${cls.students.map(s => {
+                                const hasData = s.records.length > 0;
+                                const textStyle = hasData ? 'text-gray-900 font-semibold' : 'text-gray-400 font-medium';
+                                return `
+                                <div class="group/student flex justify-between items-center px-2 py-1.5 rounded-lg hover:bg-white text-xs cursor-pointer ${textStyle} transition-colors" onclick="openUploadModal('${s.id}', '${s.name}')">
+                                    <div class="flex items-center flex-1 min-w-0">
+                                        <span class="truncate" title="${s.name}">${s.name}</span>
+                                        ${hasData ? `<span class="w-1.5 h-1.5 rounded-full bg-green-400 ml-1.5 shrink-0" title="已批改"></span>` : ''}
+                                    </div>
+                                    <div class="hidden group-hover/student:flex items-center gap-1.5 text-gray-400 ml-1 shrink-0">
+                                        <i class="fa-solid fa-pen hover:text-blue-500 px-1" onclick="editStudent('${cls.id}', '${s.id}', event)" title="编辑"></i>
+                                        <i class="fa-solid fa-trash hover:text-red-500 px-1" onclick="deleteStudent('${cls.id}', '${s.id}', event)" title="删除"></i>
+                                    </div>
+                                </div>`
+                            }).join('')}
+                        </div>
+                    ` : ''}
+                `;
+                container.appendChild(div);
+            });
+            const currCls = appData.classes.find(c => c.id === appData.currentClassId);
+            document.getElementById('top-class-name').innerText = currCls ? currCls.name : '未选择班级';
+        }
+
+        function openUploadModal(sId, sName) {
+            currentUploadStudentId = sId;
+            document.getElementById('upload-title').innerText = `录入 - ${sName}`;
+            document.getElementById('upload-json-text').value = '';
+            openModal('upload-modal');
+        }
+
+        function handleSingleUpload(e) {
+            const file = e.target.files[0]; if(!file) return; const reader = new FileReader();
+            reader.onload = (evt) => { document.getElementById('upload-json-text').value = evt.target.result; };
+            reader.readAsText(file); e.target.value = '';
+        }
+
+        function saveStudentJson() {
+            let rawText = document.getElementById('upload-json-text').value.trim();
+            if(!rawText) return showToast('无数据！');
+            const jsonRegex = /```(?:json)?\s*([\s\S]*?)\s*```/;
+            const match = rawText.match(jsonRegex);
+            if(match) rawText = match[1];
+
+            try {
+                const data = JSON.parse(rawText);
+                if(!data.bracket) data.bracket = data.chinese_level || "未定档";
+                data.model_essays = normalizeModelEssays(data);
+                if(typeof data.score !== 'number') data.score = 0;
+                if(typeof data.recommended_score !== 'number') data.recommended_score = data.score;
+                if(typeof data.conservative_score !== 'number') data.conservative_score = data.score;
+                if(typeof data.final_teaching_score !== 'number') data.final_teaching_score = data.score;
+                
+                if(typeof data.content_score !== 'number') data.content_score = Number((data.score * 0.33).toFixed(1));
+                if(typeof data.organisation_score === 'number' && typeof data.struct_score !== 'number') data.struct_score = data.organisation_score;
+                if(typeof data.lang_score !== 'number' && typeof data.language_score === 'number') data.lang_score = data.language_score;
+                if(typeof data.lang_score !== 'number') data.lang_score = Number((data.score * 0.33).toFixed(1));
+                if(typeof data.struct_score !== 'number') data.struct_score = Number((data.score - data.content_score - data.lang_score).toFixed(1));
+                data.score = data.final_teaching_score || data.recommended_score || data.score;
+                
+                const cls = appData.classes.find(c => c.id === appData.currentClassId);
+                const std = cls.students.find(s => s.id === currentUploadStudentId);
+                std.records.push({ date: Date.now(), data: data });
+                
+                saveData(); renderSidebar(); 
+                if(!document.getElementById('student-essays').classList.contains('hidden')) renderEssays();
+                if(!document.getElementById('data-analysis').classList.contains('hidden')) renderAnalysis(); 
+                if(!document.getElementById('writing-guidance').classList.contains('hidden')) renderGuidance(); 
+
+                closeModal('upload-modal'); showToast('提取并保存成功');
+            } catch (err) { showToast('解析失败，请检查文本'); }
+        }
+
+        function generatePromptAndJump(targetUrl = 'https://www.doubao.com/') {
+            saveAiConfig();
+            const topic = appData.aiTopic || '';
+            const rubric = appData.aiRubric || '';
+            const promptNode = document.getElementById('ket-full-prompt-template');
+            const basePrompt = promptNode ? promptNode.textContent.trim() : `# KET / A2 Key 写作批改完整提示词
+
+【输出与格式特别要求】
+1. 请始终用中文和我沟通。英文只用于学生原文、英文修正、提分范文和必要考试术语。不要输出全英文批改报告。
+2. 最终批改报告的栏目标题请中文优先，英文可作为补充放在后面。例如：“考试与题型识别｜Exam & Task Identification”。
+3. KET 英文 email / message 不按中文作文格式缩进；Dear ... 后正文顶格书写可以接受，不得因为没有空格或缩进扣分，也不得把“不缩进”列为错误。
+4. KET email 落款不强制使用 “Love,”。如果学生原文只写名字，通常可以接受。可以建议使用 “See you soon,” 或 “Write back soon,”，但不要说 “Love,” 是格式要求。
+5. 如果题目缺失，不要武断判定时间、地点、时态错误。对于依赖题目的表达，必须写成：“如果题目要求未来活动，则建议改为……；如果活动是今天，原句可以接受。”
+6. 如果原句意思清楚、语法可接受，只能标为“可优化表达”，不要列为严重错误或主要扣分点。
+7. 不要把 KET 作文按 PET、中高考、雅思或中文作文标准批改。KET 写作优先看：任务是否完成、读者是否看懂、信息是否清楚。
+8. 所有评分理由、错误解释、学生反馈、家长总结、老师建议必须中文输出。
+
+# Role｜角色设定
+你是一名资深 Cambridge English A2 Key / A2 Key for Schools 写作阅卷员，同时也是一名熟悉中国 K12 英语学习者问题的写作诊断专家。
+
+# Core Principle｜核心原则
+你不能只做语法纠错。必须先判断考试与题型、任务点、任务完成度、读者理解、结构和语言错误是否影响理解。
+
+评分优先级：
+1. Task completion / Content
+2. Reader understanding / Communication
+3. Organisation
+4. Language control
+5. Accuracy and range
+
+默认使用 Mode B｜Deep Correction 深度批改，输出：考试与题型识别、题目任务拆解、官方评分、推荐分/保守分/教学交付分、Cambridge Scale & 中文等级解释、边界分判断、错误严重度分级、逐句精修、保分提分改写、学生反馈、家长总结、老师复核建议。
+
+重要规则：
+- Content / Organisation / Language 每项只能给整数分。
+- 单篇 Part 6 或 Part 7 只能做“单题表现等级估算”，不能直接判定最终考试等级。
+- 13-15/15：卓越；11-12/15：优秀；8-10/15：通过；5-7/15：接近；0-4/15：未达标。
+- 缺少题目时，Content 和等级解释必须标注为暂估。
+- 不得要求 KET email 正文缩进，不得强制 Love, 落款。
+- 改写必须控制在 A2 学生可模仿范围。
+
+# Final Output Template｜默认完整输出模板
+请输出以下模块：
+1. 考试与题型识别｜Exam & Task Identification
+2. 题目任务拆解｜Task Requirements
+3. 官方评分｜A2 Key / KET
+4. 分数信心判断｜Score Confidence
+5. Cambridge Scale & 中文等级解释
+6. 边界分判断｜Boundary Judgement
+7. 错误严重度分级｜Error Severity Classification
+8. 逐句精修｜Sentence-Level Correction
+9. 保分提分改写｜Score-Boost Rewrite
+10. 学生反馈｜Student Feedback
+11. 家长可读总结｜Parent-Friendly Summary
+12. 老师复核建议｜Teacher Note`;
+            const template = `${basePrompt}
+
+---
+
+# System Save Requirement｜系统保存用 JSON 输出要求
+
+完成上面的中文批改报告后，最后必须额外输出一个严格 JSON 代码块，便于 CharlieAI 系统保存。JSON 必须可被 JSON.parse 解析，不要有注释、尾逗号或多余文字。
+
+JSON 字段必须包含：
+{
+  "score": 数值,
+  "recommended_score": 数值,
+  "conservative_score": 数值,
+  "final_teaching_score": 数值,
+  "words": 数值,
+  "content_score": 整数0到5,
+  "organisation_score": 整数0到5,
+  "struct_score": 整数0到5,
+  "language_score": 整数0到5,
+  "lang_score": 整数0到5,
+  "bracket": "卓越/优秀/通过/接近/未达标",
+  "chinese_level": "卓越/优秀/通过/接近/未达标",
+  "task_type": "Email/Note/Message/Story/Other/Unclear",
+  "part": "Part 6/Part 7/Unclear",
+  "risk_level": "Low/Medium/High",
+  "prompt_status": "Full prompt provided/Partial prompt provided/Prompt missing",
+  "summary": "中文总评，包含主要得分依据",
+  "parent_summary": "中文家长总结，若题目缺失必须说明 Content 和等级为暂估",
+  "student_feedback": "中文学生反馈，最多3个重点",
+  "teacher_note": "中文老师复核建议",
+  "errors": [
+    {"error":"英文原句","reason":"中文原因，说明严重度","correction":"英文更正","chinese_meaning":"中文意思"}
+  ],
+  "upgrades": [
+    {"original":"英文原句","points":"中文提分点","upgraded":"A2可模仿英文改写","chinese_meaning":"中文意思"}
+  ],
+  "model_essays": {
+    "Minimum Correction": "完整英文范文：只做最低必要修正，保留学生原意和A2水平",
+    "Score-Boost Version": "完整英文范文：在A2可模仿范围内明显提分",
+    "Examiner-Friendly Version": "完整英文范文：最适合阅卷员理解任务完成度的自然版本"
+  },
+  "original_essay": "学生英文原文"
+}
+
+注意：model_essays 里的三个字段必须全部填写完整英文正文，任何情况下都不要留空、不要写“见上文”。
+
+---
+
+# 本次批改输入
+
+考试级别：KET / A2 Key
+作文题目：${topic || '（用户未填写，请按缺少题目规则处理）'}
+补充评分标准或班级交付要求：${rubric || 'A2 Key / KET 官方三维度：Content /5, Organisation /5, Language /5，总分15分。'}
+学生作文：（待用户粘贴）
+学生姓名：
+年级：
+批改模式：Deep Correction 深度批改
+是否需要家长反馈：是
+是否需要逐句精修：是
+是否需要助教质检：否`;
+            
+            const copied = fallbackCopyText(template, '提示词已复制，正在跳转...');
+            const targetWin = window.open(targetUrl, '_blank');
+            closeModal('ai-modal');
+            if (!copied) {
+                openDeliveryPreview({
+                    type: 'prompt',
+                    title: '提示词复制受限',
+                    subtitle: targetWin ? '已打开目标窗口，请在这里手动全选复制' : '浏览器限制了自动复制，请在这里手动全选复制',
+                    iconClass: 'fa-solid fa-keyboard',
+                    iconStyle: 'bg-orange-50 text-orange-600',
+                    text: template
+                });
+            }
+        }
+
+        function backupData() {
+            const blob = new Blob([JSON.stringify(appData)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement('a');
+            a.download = `CharlieAI_Backup_${Date.now()}.json`; a.href = url; a.click(); URL.revokeObjectURL(url);
+        }
+        function restoreData(e) {
+            const file = e.target.files[0]; if(!file) return; const r = new FileReader();
+            r.onload = (evt) => { try { appData = JSON.parse(evt.target.result); saveData(); renderSidebar(); selectClass(appData.classes[0]?.id); showToast('恢复成功'); } catch(err) { showToast('文件损坏！'); } }; r.readAsText(file); e.target.value = '';
+        }
+
+        function getLatestRecords() {
+            const cls = appData.classes.find(c => c.id === appData.currentClassId); if(!cls) return [];
+            return cls.students.map(s => { if(!s.records.length) return null; const latest = s.records[s.records.length - 1].data; return { name: s.name, id: s.id, ...latest }; }).filter(Boolean);
+        }
+
+        function getCurrentClass() {
+            return appData.classes.find(c => c.id === appData.currentClassId);
+        }
+
+        function safeFileName(name) {
+            return String(name || 'CharlieAI').replace(/[\\/:*?"<>|]/g, '_').slice(0, 80);
+        }
+
+        function formatDateTime(ts = Date.now()) {
+            const d = new Date(ts);
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+
+        function downloadTextFile(filename, content, type = 'text/plain;charset=utf-8') {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.download = filename; a.href = url; a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function copyText(text, okMsg = '已复制') {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => showToast(okMsg)).catch(() => fallbackCopyText(text, okMsg));
+            } else {
+                fallbackCopyText(text, okMsg);
+            }
+        }
+
+        function fallbackCopyText(text, okMsg) {
+            const ta = document.createElement('textarea');
+            ta.value = text; ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed'; ta.style.left = '0'; ta.style.top = '0'; ta.style.width = '1px'; ta.style.height = '1px'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length);
+            let ok = false;
+            try { ok = document.execCommand('copy'); if(ok) showToast(okMsg); else showToast('复制受限，请手动复制'); }
+            catch(e) { showToast('复制受限，请手动复制'); }
+            ta.remove();
+            return ok;
+        }
+
+        function getDeliveryRows() {
+            const cls = getCurrentClass(); if(!cls) return [];
+            return cls.students.map(s => {
+                const record = s.records.length ? s.records[s.records.length - 1] : null;
+                const r = record ? record.data : {};
+                const models = normalizeModelEssays(r);
+                return {
+                    name: s.name,
+                    date: record ? formatDateTime(record.date) : '',
+                    status: record ? '已录入' : '未录入',
+                    score: r.final_teaching_score ?? r.score ?? '',
+                    recommended: r.recommended_score ?? '',
+                    conservative: r.conservative_score ?? '',
+                    bracket: r.bracket || r.chinese_level || '',
+                    content: r.content_score ?? '',
+                    organisation: r.struct_score ?? r.organisation_score ?? '',
+                    language: r.lang_score ?? r.language_score ?? '',
+                    summary: r.summary || '',
+                    parent: r.parent_summary || r.summary || '',
+                    student: r.student_feedback || '',
+                    teacher: r.teacher_note || '',
+                    original: r.original_essay || '',
+                    minimumCorrection: models['Minimum Correction'] || '',
+                    scoreBoostVersion: models['Score-Boost Version'] || '',
+                    examinerFriendlyVersion: models['Examiner-Friendly Version'] || ''
+                };
+            });
+        }
+
+        function makeParentFeedback(row) {
+            if (row.status !== '已录入') return `${row.name}：本次作文尚未录入批改结果。`;
+            const scoreLine = row.score !== '' ? `本次KET写作单题表现：${row.score}/${appData.maxScore}${row.bracket ? `（${row.bracket}）` : ''}` : '本次KET写作单题表现：已完成批改';
+            const nextStep = row.teacher || row.student || '建议继续围绕任务点完整度、句子准确性和表达清晰度做巩固。';
+            return `【${row.name}】\n${scoreLine}\n家校反馈：${row.parent || '本次表现已记录，建议老师结合原文复核后发送。'}\n下一步建议：${nextStep}`;
+        }
+
+        function makeLeadTeacherReview(rows) {
+            const done = rows.filter(r => r.status === '已录入');
+            if(!done.length) return '暂无已录入批改结果，无法生成主教复盘。';
+            const avg = done.reduce((sum, r) => sum + Number(r.score || 0), 0) / done.length;
+            const pass = done.filter(r => Number(r.score || 0) >= appData.passMark).length;
+            const low = done.filter(r => Number(r.score || 0) < appData.passMark).map(r => `${r.name}(${r.score})`).join('、') || '无';
+            const bracketSummary = Object.entries(done.reduce((map, r) => {
+                const key = r.bracket || '未定档';
+                map[key] = (map[key] || 0) + 1;
+                return map;
+            }, {})).map(([k, v]) => `${k}${v}人`).join('、');
+            const dims = [
+                { key: 'content', name: 'Content任务完成' },
+                { key: 'organisation', name: 'Organisation组织' },
+                { key: 'language', name: 'Language语言' }
+            ].map(d => ({ ...d, avg: done.reduce((sum, r) => sum + Number(r[d.key] || 0), 0) / done.length })).sort((a,b) => a.avg - b.avg);
+            const summaries = done.map(r => r.summary).filter(Boolean).slice(0, 6).map((t, i) => `${i + 1}. ${t}`).join('\n');
+            const teacherNotes = done.map(r => r.teacher || r.student).filter(Boolean).slice(0, 8).map((t, i) => `${i + 1}. ${t}`).join('\n');
+            const moduleMap = {
+                content: '审题与任务点覆盖：训练学生圈出 bullet points，逐项回应 who/when/where/what/why。',
+                organisation: '篇章组织：强化 email/message 开头结尾、信息顺序、连接词和分段意识。',
+                language: '语言准确性：回到 A2 高频句型、动词形式、介词搭配和可模仿表达。'
+            };
+            const strongest = dims[dims.length - 1];
+            const weakest = dims[0];
+            return `【主教复盘】${getCurrentClass()?.name || ''}\n时间：${formatDateTime()}\n\n一、班级习作概况\n已批改：${done.length}/${rows.length}\n平均分：${avg.toFixed(1)}/${appData.maxScore}\n通过率：${((pass / done.length) * 100).toFixed(1)}%（通过线 ${appData.passMark}/${appData.maxScore}）\n等级分布：${bracketSummary || '暂无'}\n需重点关注：${low}\n\n二、共性特点\n优势维度：${strongest.name}（均分 ${strongest.avg.toFixed(1)}/5）\n薄弱维度：${weakest.name}（均分 ${weakest.avg.toFixed(1)}/5）\n整体表现摘要：\n${summaries || '暂无总评摘要。'}\n\n三、共性问题\n1. 优先关注 ${weakest.name}，这是当前最影响提分的模块。\n2. 对低于通过线学生，先保证任务完成和读者能看懂，再处理表达丰富度。\n3. 对已通过学生，重点把“能表达”推进到“更准确、更完整、更自然”。\n\n四、后续教学建议\n主训练模块：${moduleMap[weakest.key]}\n辅助训练模块：${moduleMap[dims[1].key]}\n课堂安排建议：先用1篇低分典型文做任务点补全，再用1篇中档作文做句型升级，最后让学生仿写一个完整版本。\n\n五、任课老师复核要点\n${teacherNotes || '暂无老师复核建议。'}`;
+        }
+
+        function exportClassExcel() {
+            const cls = getCurrentClass(); if(!cls) return showToast('请先选择班级');
+            const rows = getDeliveryRows();
+            if(!rows.length) return showToast('暂无学生数据');
+            const headers = ['学生','状态','录入时间','教学交付分','Recommended','Conservative','等级','Content','Organisation','Language','总评','家校反馈','学生反馈','老师建议','Minimum Correction范文','Score-Boost Version范文','Examiner-Friendly Version范文','原文'];
+            const body = rows.map(r => [r.name,r.status,r.date,r.score,r.recommended,r.conservative,r.bracket,r.content,r.organisation,r.language,r.summary,r.parent,r.student,r.teacher,r.minimumCorrection,r.scoreBoostVersion,r.examinerFriendlyVersion,r.original]);
+            const tableRows = [headers, ...body].map(row => `<tr>${row.map(cell => `<td style="mso-number-format:'\\@';vertical-align:top;">${escapeHTML(cell)}</td>`).join('')}</tr>`).join('');
+            const html = `\ufeff<html><head><meta charset="UTF-8"></head><body><table border="1">${tableRows}</table></body></html>`;
+            downloadTextFile(`${safeFileName(cls.name)}_KET批改交付表_${Date.now()}.xls`, html, 'application/vnd.ms-excel;charset=utf-8');
+            showToast('Excel已导出');
+        }
+
+        function buildParentFeedbackText() {
+            const cls = getCurrentClass(); if(!cls) return '';
+            return `【${cls.name}｜KET作文家校反馈】\n${formatDateTime()}\n\n${getDeliveryRows().map(makeParentFeedback).join('\n\n')}`;
+        }
+
+        function copyParentFeedback() {
+            const text = buildParentFeedbackText();
+            if(!text) return showToast('请先选择班级');
+            copyText(text, '家校反馈已复制');
+        }
+
+        let currentDeliveryType = 'parent';
+
+        function openDeliveryPreview({ type, title, subtitle, iconClass, iconStyle, text }) {
+            currentDeliveryType = type;
+            document.getElementById('delivery-title').innerText = title;
+            document.getElementById('delivery-subtitle').innerText = subtitle;
+            document.getElementById('delivery-icon').className = `w-9 h-9 rounded-full flex items-center justify-center text-sm ${iconStyle}`;
+            document.getElementById('delivery-icon').innerHTML = `<i class="${iconClass}"></i>`;
+            document.getElementById('delivery-preview-text').value = text;
+            openModal('delivery-modal');
+        }
+
+        function previewParentFeedback() {
+            const cls = getCurrentClass(); if(!cls) return showToast('请先选择班级');
+            openDeliveryPreview({
+                type: 'parent',
+                title: '家校反馈预览',
+                subtitle: `${cls.name}｜可微调后复制给家长或教务`,
+                iconClass: 'fa-solid fa-comments',
+                iconStyle: 'bg-blue-50 text-blue-600',
+                text: buildParentFeedbackText()
+            });
+        }
+
+        function downloadParentFeedback() {
+            const cls = getCurrentClass(); if(!cls) return showToast('请先选择班级');
+            downloadTextFile(`${safeFileName(cls.name)}_家校反馈_${Date.now()}.txt`, buildParentFeedbackText());
+            showToast('反馈文本已导出');
+        }
+
+        function copyLeadTeacherReview() {
+            const cls = getCurrentClass(); if(!cls) return showToast('请先选择班级');
+            copyText(makeLeadTeacherReview(getDeliveryRows()), '主教复盘已复制');
+        }
+
+        function previewLeadTeacherReview() {
+            const cls = getCurrentClass(); if(!cls) return showToast('请先选择班级');
+            openDeliveryPreview({
+                type: 'lead',
+                title: '主教复盘预览',
+                subtitle: `${cls.name}｜班级习作画像与后续教学建议`,
+                iconClass: 'fa-solid fa-clipboard-list',
+                iconStyle: 'bg-purple-50 text-purple-600',
+                text: makeLeadTeacherReview(getDeliveryRows())
+            });
+        }
+
+        function copyDeliveryPreview() {
+            const text = document.getElementById('delivery-preview-text').value;
+            copyText(text, currentDeliveryType === 'lead' ? '主教复盘已复制' : '家校反馈已复制');
+        }
+
+        function downloadDeliveryPreview() {
+            const cls = getCurrentClass(); if(!cls) return showToast('请先选择班级');
+            const text = document.getElementById('delivery-preview-text').value;
+            const label = currentDeliveryType === 'lead' ? '主教复盘' : '家校反馈';
+            downloadTextFile(`${safeFileName(cls.name)}_${label}_${Date.now()}.txt`, text);
+            showToast(`${label}已导出`);
+        }
+
+        function adjPass(delta) {
+            let val = appData.passMark + delta;
+            if(val < 1) val = 1; if(val > appData.maxScore) val = appData.maxScore;
+            updatePassMark(val);
+        }
+
+        function updateMaxScore(val) {
+            appData.maxScore = parseInt(val) || 15;
+            document.getElementById('input-max-score').value = appData.maxScore;
+            const passSlider = document.getElementById('pass-mark-slider'); passSlider.max = appData.maxScore;
+            if (appData.passMark > appData.maxScore) { appData.passMark = appData.maxScore; passSlider.value = appData.passMark; document.getElementById('pass-mark-val').innerText = appData.passMark; }
+            saveData(); renderAnalysis(); if(!document.getElementById('student-essays').classList.contains('hidden')) renderEssays();
+        }
+
+        let passDebounceTimer;
+        function debounceUpdatePassMark(val) {
+            document.getElementById('pass-mark-val').innerText = val;
+            clearTimeout(passDebounceTimer);
+            passDebounceTimer = setTimeout(() => { appData.passMark = parseInt(val); saveData(); renderAnalysis(); if(!document.getElementById('student-essays').classList.contains('hidden')) renderEssays(); }, 300);
+        }
+        function updatePassMark(val) { appData.passMark = parseInt(val); document.getElementById('pass-mark-slider').value = appData.passMark; document.getElementById('pass-mark-val').innerText = appData.passMark; saveData(); renderAnalysis(); if(!document.getElementById('student-essays').classList.contains('hidden')) renderEssays(); }
+
+        function setFocusFilter(f) {
+            focusFilter = f;
+            const activeClass = "px-4 py-1.5 text-[11px] font-bold rounded-lg bg-white shadow-sm text-gray-900 transition-all";
+            const inactiveClass = "px-4 py-1.5 text-[11px] font-bold rounded-lg text-gray-500 hover:text-gray-900 transition-all";
+            document.getElementById('btn-focus-avg').className = f === 'avg' ? activeClass : inactiveClass;
+            document.getElementById('btn-focus-pass').className = f === 'pass' ? activeClass : inactiveClass;
+            renderAnalysis();
+        }
+
+        function renderEmptyState(containerId, msg="暂无数据") {
+            document.getElementById(containerId).innerHTML = `<div class="w-full flex-1 flex flex-col items-center justify-center text-gray-400 min-h-[400px]"><div class="w-20 h-20 bg-white shadow-sm rounded-full flex items-center justify-center mb-4"><i class="fa-solid fa-inbox text-3xl text-blue-500/30"></i></div><p class="text-sm font-medium text-gray-500 tracking-wide">${msg}</p></div>`;
+        }
+
+        function setEssaySort(order) {
+            essaySortOrder = order;
+            const activeClass = "px-4 py-1.5 text-xs font-bold rounded-md bg-white shadow-sm text-gray-900 transition-all";
+            const inactiveClass = "px-4 py-1.5 text-xs font-bold rounded-md text-gray-500 hover:text-gray-900 transition-all";
+            document.getElementById('essay-sort-default').innerHTML = `<i class="fa-solid fa-clock"></i><span class="hidden md:inline ml-1">默认</span>`; document.getElementById('essay-sort-default').className = order === 'default' ? activeClass : inactiveClass;
+            document.getElementById('essay-sort-desc').innerHTML = `<i class="fa-solid fa-arrow-down-9-1"></i><span class="hidden md:inline ml-1">降序</span>`; document.getElementById('essay-sort-desc').className = order === 'desc' ? activeClass : inactiveClass;
+            document.getElementById('essay-sort-asc').innerHTML = `<i class="fa-solid fa-arrow-up-1-9"></i><span class="hidden md:inline ml-1">升序</span>`; document.getElementById('essay-sort-asc').className = order === 'asc' ? activeClass : inactiveClass;
+            renderEssays();
+        }
+
+        function renderEssays() {
+            const container = document.getElementById('student-essays-grid'); if(!container) return;
+            container.innerHTML = ''; let records = getLatestRecords();
+            if(!records.length) return renderEmptyState('student-essays-grid', '等待录入...');
+            
+            if(essaySortOrder === 'desc') records.sort((a,b) => b.score - a.score);
+            if(essaySortOrder === 'asc') records.sort((a,b) => a.score - b.score);
+
+            records.forEach(r => {
+                const isPass = r.score >= appData.passMark; const bgClass = isPass ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700';
+                container.innerHTML += `
+                    <div class="card-hover cursor-pointer flex flex-col h-48 rounded-2xl p-5 border border-white/60 bg-white/80" onclick="openReport('${r.id}')">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="font-bold text-gray-900 text-base tracking-tight truncate flex-1 mr-2" title="${r.name}">${r.name}</span>
+                            <div class="flex flex-col items-end gap-1 shrink-0">
+                                <span class="px-2 py-0.5 rounded-lg text-xs font-black ${bgClass}">${r.score}</span>
+                                <span class="text-[9px] text-gray-400 font-bold">${r.bracket || '未定档'}</span>
+                            </div>
+                        </div>
+                        <div class="flex-1 overflow-hidden">
+                            <p class="text-[12px] text-gray-500 leading-relaxed line-clamp-4">${r.summary || '无评价'}</p>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function renderAnalysis() {
+            const cls = appData.classes.find(c => c.id === appData.currentClassId); if(!cls) return;
+            const records = getLatestRecords();
+            
+            document.getElementById('input-max-score').value = appData.maxScore;
+            const passSlider = document.getElementById('pass-mark-slider'); passSlider.max = appData.maxScore; passSlider.value = appData.passMark;
+            document.getElementById('pass-mark-val').innerText = appData.passMark;
+            document.getElementById('total-students').innerText = cls.students.length;
+            document.getElementById('actual-takers').innerText = records.length;
+            
+            if(records.length === 0) {
+                document.getElementById('stat-avg').innerText = '--'; document.getElementById('stat-pass-rate').innerText = '--';
+                document.getElementById('focus-list').innerHTML = '<span class="text-xs text-gray-400 mt-2">暂无数据</span>';
+                const radarCards = document.getElementById('radar-score-cards'); if(radarCards) radarCards.innerHTML = '';
+                if(charts.bar) charts.bar.destroy(); if(charts.radar) charts.radar.destroy(); if(charts.line) charts.line.destroy();
+                document.getElementById('bracket-lists').innerHTML = ''; return;
+            }
+            
+            let totalScore = 0; let passCount = 0; let radData = { c: 0, l: 0, s: 0 };
+            let bracketMap = {};
+            records.forEach(r => {
+                totalScore += r.score; if(r.score >= appData.passMark) passCount++;
+                radData.c += r.content_score || 0; radData.l += r.lang_score || 0; radData.s += r.struct_score || 0;
+                const bName = r.bracket || '未定档';
+                if(!bracketMap[bName]) bracketMap[bName] = { name: bName, scores: [], names: [] };
+                bracketMap[bName].scores.push(r.score); bracketMap[bName].names.push(r.name);
+            });
+
+            let dynamicBrackets = Object.values(bracketMap).map(b => { b.avg = b.scores.reduce((sum, v) => sum + v, 0) / b.scores.length; return b; }).sort((a, b) => b.avg - a.avg);
+
+            const avgScore = (totalScore / records.length);
+            document.getElementById('stat-avg').innerText = avgScore.toFixed(1); document.getElementById('stat-pass-rate').innerText = ((passCount / records.length)*100).toFixed(1) + '%';
+            
+            let weak = [];
+            if (focusFilter === 'avg') weak = records.filter(r => r.score < avgScore).map(r => `<span class="px-3 py-1.5 bg-white border border-red-100 rounded-xl text-[11px] font-bold text-gray-700 shadow-sm cursor-pointer hover:shadow-md truncate max-w-[120px]" onclick="openReport('${r.id}')">${r.name} <span class="text-red-500">${r.score}</span></span>`);
+            else weak = records.filter(r => r.score < appData.passMark).map(r => `<span class="px-3 py-1.5 bg-white border border-orange-100 rounded-xl text-[11px] font-bold text-gray-700 shadow-sm cursor-pointer hover:shadow-md truncate max-w-[120px]" onclick="openReport('${r.id}')">${r.name} <span class="text-orange-500">${r.score}</span></span>`);
+            document.getElementById('focus-list').innerHTML = weak.length ? weak.join('') : '<div class="bg-green-50 p-3 rounded-xl flex items-center gap-2 border border-green-100 w-full"><i class="fa-solid fa-trophy text-xl text-green-500"></i><span class="text-xs font-bold text-green-700">全员达标！</span></div>';
+
+            Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif';
+            
+            if(charts.bar) charts.bar.destroy();
+            charts.bar = new Chart(document.getElementById('barChart'), { type: 'bar', data: { labels: dynamicBrackets.map(b => b.name), datasets: [{ data: dynamicBrackets.map(b => b.names.length), backgroundColor: colorPalette.slice(0, dynamicBrackets.length), borderRadius: 6, barPercentage: 0.5 }] }, options: { responsive:true, maintainAspectRatio:false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { grid: {display:false} } } } });
+
+            document.getElementById('bracket-lists').innerHTML = dynamicBrackets.map((b, i) => `<div class="text-center flex-1 px-2 border-r last:border-0 border-gray-100"><div class="font-bold mb-2 text-xs" style="color:${colorPalette[i % colorPalette.length]}">${b.name}</div><div class="flex flex-wrap justify-center gap-1">${b.names.map(n => `<span class="px-2 py-1 bg-white border border-gray-100 text-gray-600 rounded-md text-[10px] shadow-sm max-w-[80px] truncate">${n}</span>`).join('') || '-'}</div></div>`).join('');
+
+            if(charts.radar) charts.radar.destroy();
+            const theoreticalMaxDimension = 5; 
+            const radarScores = [
+                { label: 'Content', cn: '任务完成', value: Number((radData.c/records.length).toFixed(1)), color: '#007AFF' },
+                { label: 'Language', cn: '语言准确', value: Number((radData.l/records.length).toFixed(1)), color: '#AF52DE' },
+                { label: 'Organisation', cn: '组织结构', value: Number((radData.s/records.length).toFixed(1)), color: '#FF9500' }
+            ];
+            const radarComment = (v) => v >= 4 ? '优势项' : (v >= 3 ? '基本稳定' : (v >= 2 ? '需加强' : '优先补救'));
+            document.getElementById('radar-score-cards').innerHTML = radarScores.map(item => `
+                <div class="bg-[#FBFBFD] border border-gray-100 rounded-2xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <p class="text-[10px] font-black text-gray-400 uppercase">${item.label}</p>
+                            <p class="text-xs font-bold text-gray-700">${item.cn}</p>
+                        </div>
+                        <p class="text-2xl font-black" style="color:${item.color}">${item.value}<span class="text-xs text-gray-400">/5</span></p>
+                    </div>
+                    <div class="h-2 bg-white rounded-full overflow-hidden border border-gray-100">
+                        <div class="h-full rounded-full" style="width:${Math.min(100, item.value / 5 * 100)}%; background:${item.color}"></div>
+                    </div>
+                    <p class="text-[11px] font-bold text-gray-500 mt-2">${radarComment(item.value)}</p>
+                </div>
+            `).join('');
+            charts.radar = new Chart(document.getElementById('radarChart'), {
+                type: 'radar',
+                data: { labels: radarScores.map(s => `${s.label} ${s.value}/5`), datasets: [{ label: '班级均分', data: radarScores.map(s => s.value), backgroundColor: 'rgba(175, 82, 222, 0.2)', borderColor: '#AF52DE', pointBackgroundColor: '#AF52DE', pointRadius: 5, pointHoverRadius: 7, borderWidth: 2 }] },
+                options: { responsive:true, maintainAspectRatio:false, plugins: { tooltip: { callbacks: { label: (ctx) => `班级均分：${ctx.raw}/5` } } }, scales: { r: { min: 0, max: theoreticalMaxDimension, ticks:{ display:true, stepSize: 1, backdropColor: 'transparent' }, pointLabels: { font: { size: 12, weight: 'bold' } } } } }
+            });
+
+            let maxRecords = 0; cls.students.forEach(s => { if(s.records.length > maxRecords) maxRecords = s.records.length; });
+            const trendData = []; const labels = [];
+            for(let i=0; i<maxRecords; i++) {
+                let sum = 0; let cnt = 0;
+                cls.students.forEach(s => { if(s.records[i]) { sum += s.records[i].data.score; cnt++; } });
+                if(cnt > 0) { trendData.push((sum/cnt).toFixed(1)); labels.push(`第${i+1}次`); }
+            }
+            if(charts.line) charts.line.destroy();
+            charts.line = new Chart(document.getElementById('lineChart'), { type: 'line', data: { labels, datasets: [{ label: '班级均分', data: trendData, borderColor: '#FF9500', tension: 0.4, fill: true, backgroundColor: 'rgba(255, 149, 0, 0.1)', borderWidth: 2 }] }, options: { responsive:true, maintainAspectRatio:false, scales: { y: { min: 0, max: appData.maxScore }, x: { grid: {display:false} } } } });
+        }
+
+        function setGuidanceSort(order) {
+            guidanceSortOrder = order;
+            const activeClass = "flex-1 py-1.5 text-xs font-bold rounded-md bg-white shadow-sm text-gray-900 transition-all";
+            const inactiveClass = "flex-1 py-1.5 text-xs font-bold rounded-md text-gray-500 hover:text-gray-900 transition-all";
+            document.getElementById('sort-desc').innerHTML = `<i class="fa-solid fa-arrow-down-9-1"></i><span class="hidden md:inline ml-1">降序</span>`; document.getElementById('sort-desc').className = order === 'desc' ? activeClass : inactiveClass;
+            document.getElementById('sort-asc').innerHTML = `<i class="fa-solid fa-arrow-up-1-9"></i><span class="hidden md:inline ml-1">升序</span>`; document.getElementById('sort-asc').className = order === 'asc' ? activeClass : inactiveClass;
+            renderGuidance(true);
+        }
+
+        function renderGuidance(keepScroll = false) {
+            const listEl = document.getElementById('guidance-list'); const scrollTop = listEl.scrollTop;
+            const records = getLatestRecords();
+            if(!records.length) { listEl.innerHTML = '<div class="text-xs text-center text-gray-400 mt-4">暂无数据</div>'; document.getElementById('random-call-buttons').innerHTML=''; return; }
+
+            records.sort((a,b) => guidanceSortOrder === 'desc' ? b.score - a.score : a.score - b.score);
+            
+            listEl.innerHTML = records.map(r => {
+                const isActive = r.id === currentPracticeId;
+                return `<div id="guidance-stu-${r.id}" class="p-3 rounded-[14px] cursor-pointer transition-all flex justify-between items-center group ${isActive ? 'bg-[#007AFF] shadow-md active-student' : 'bg-white border border-gray-100 shadow-sm'}" onclick="openGuidancePanel('${r.id}')"><span class="font-bold text-xs truncate pr-1 ${isActive ? 'text-white' : 'text-gray-900'}">${r.name}</span><span class="text-[10px] font-black px-2 py-0.5 rounded-md shrink-0 ${isActive ? 'bg-white text-[#007AFF]' : 'text-gray-600 bg-gray-100'}">${r.score}</span></div>`
+            }).join('');
+
+            if(keepScroll) listEl.scrollTop = scrollTop;
+
+            const uniqueBrackets = [...new Set(records.map(r => r.bracket || '未定档'))];
+            const htmlBtns = uniqueBrackets.map((b, i) => `<button onclick="randomCall('${b}')" class="px-4 py-2 ${btnColorPalette[i % btnColorPalette.length]} text-white rounded-xl font-bold text-xs shadow-md active:scale-95">🎲${b}</button>`).join('');
+            const btnCont = document.getElementById('random-call-buttons'); if(btnCont) btnCont.innerHTML = htmlBtns || '<span class="text-xs text-gray-400">无分档</span>';
+        }
+
+        function randomCall(targetBracket) {
+            if(isDrawingRandom) return;
+            const records = getLatestRecords(); const pool = records.filter(r => (r.bracket || '未定档') === targetBracket);
+            if(!pool.length) return showToast(`无 ${targetBracket} 学生`);
+            
+            isDrawingRandom = true; const resEls = document.querySelectorAll('.random-result-display'); let count = 0;
+            const interval = setInterval(() => {
+                const randomName = pool[Math.floor(Math.random() * pool.length)].name; resEls.forEach(el => el.innerText = randomName);
+                playTick(600 + (count*20), 0.05); count++;
+                if(count > 15) {
+                    clearInterval(interval); const winner = pool[Math.floor(Math.random() * pool.length)];
+                    resEls.forEach(el => { el.innerText = winner.name; el.classList.add('bg-[#007AFF]', 'text-white', 'shadow-xl'); el.classList.remove('bg-white/10', 'bg-[#F5F5F7]', 'text-gray-800'); });
+                    playTick(880, 0.2); setTimeout(()=>playTick(1100, 0.3), 200);
+                    setTimeout(() => { resEls.forEach(el => { el.classList.remove('bg-[#007AFF]', 'text-white', 'shadow-xl'); el.classList.add('bg-[#F5F5F7]', 'text-gray-800'); }); isDrawingRandom = false; }, 2500); 
+                }
+            }, 80);
+        }
+
+        function openGuidancePanel(sId) {
+            currentPracticeId = sId; renderGuidance(true); 
+            setTimeout(() => { const activeEl = document.getElementById(`guidance-stu-${sId}`); if(activeEl) activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 50);
+            const r = getLatestRecords().find(x => x.id === sId); if(!r) return;
+            document.getElementById('guidance-placeholder').classList.add('hidden');
+            const panel = document.getElementById('guidance-content'); panel.classList.remove('hidden');
+            document.getElementById('guidance-student-name').innerText = r.name;
+
+            const errorsHtml = (Array.isArray(r.errors)?r.errors:[]).map((e) => `<div class="mb-4 bg-red-50/60 rounded-2xl p-4 border border-red-100 shadow-sm"><p class="text-[10px] text-gray-500 mb-2 flex justify-between items-center">病句 <span class="text-red-600 font-bold bg-red-100/80 px-1.5 py-0.5 rounded">${e.reason}</span></p><p class="text-sm font-medium text-gray-800 mb-3 line-through decoration-red-400 opacity-80">${e.error}</p><p class="text-[9px] text-green-600 font-black mb-1 uppercase">更正</p><p class="text-sm font-bold text-green-700">${e.correction}</p></div>`).join('') || '<div class="text-xs text-gray-400 py-2">无语病</div>';
+            const upgradesHtml = (Array.isArray(r.upgrades)?r.upgrades:[]).map((u) => `<div class="mb-4 bg-blue-50/60 rounded-2xl p-4 border border-blue-100 shadow-sm"><p class="text-[10px] text-gray-500 mb-2 flex justify-between items-center">原句 <span class="text-blue-600 font-bold bg-blue-100/80 px-1.5 py-0.5 rounded">${u.points}</span></p><p class="text-sm font-medium text-gray-800 mb-3 opacity-80">${u.original}</p><p class="text-[9px] text-purple-500 font-black mb-1 uppercase">润色</p><p class="text-sm font-bold text-purple-700">${u.upgraded}</p></div>`).join('') || '<div class="text-xs text-gray-400 py-2">无建议</div>';
+            const modelLabels = [
+                ['Minimum Correction', '保底修改', '只做必要修正，适合让学生看到自己原文如何变准确。', 'green'],
+                ['Score-Boost Version', '提分版本', '在A2可模仿范围内升级表达，适合课堂仿写。', 'blue'],
+                ['Examiner-Friendly Version', '阅卷友好版本', '更自然地呈现任务完成度，适合老师讲评分数依据。', 'purple']
+            ];
+            const models = normalizeModelEssays(r);
+            const modelCards = modelLabels.map(([key, title, desc, color]) => {
+                const text = models[key];
+                if(!text) return '';
+                return `<div class="bg-white rounded-2xl shadow-sm border border-gray-50 p-5 border-t-[4px] border-t-${color}-400">
+                    <div class="flex items-start justify-between gap-3 mb-3">
+                        <div>
+                            <h3 class="font-bold text-gray-900 text-xs"><i class="fa-solid fa-graduation-cap text-${color}-500 mr-1"></i> ${title}</h3>
+                            <p class="text-[10px] text-gray-400 font-medium mt-1">${desc}</p>
+                        </div>
+                        <span class="text-[9px] font-black uppercase text-${color}-600 bg-${color}-50 px-2 py-1 rounded-md">${key}</span>
+                    </div>
+                    <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-[#FBFBFD] border border-gray-100 rounded-xl p-4">${escapeHTML(text)}</div>
+                </div>`;
+            }).filter(Boolean).join('');
+            const modelsHtml = modelCards || '<div class="bg-orange-50 border border-orange-100 rounded-2xl p-5 text-sm text-orange-700 font-bold"><i class="fa-solid fa-circle-info mr-2"></i>这条记录没有范文字段，请用新版完整提示词重新生成 JSON 后录入。</div>';
+
+            document.getElementById('guidance-report-panel').innerHTML = `
+                <div class="grid grid-cols-2 gap-5 mb-5">
+                    <div class="bg-[#FBFBFD] rounded-2xl p-5 border border-gray-100"><h3 class="font-bold text-gray-900 mb-3 text-xs"><i class="fa-solid fa-comment-dots text-purple-500 mr-1"></i> 总评</h3><p class="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">${r.summary}</p></div>
+                    <div class="bg-[#FBFBFD] rounded-2xl p-5 border border-gray-100"><h3 class="font-bold text-gray-900 mb-3 text-xs"><i class="fa-solid fa-file-lines text-blue-500 mr-1"></i> 原文</h3><div class="text-xs text-gray-500 line-clamp-6 leading-relaxed">${r.original_essay || '无'}</div></div>
+                </div>
+                <div class="grid grid-cols-2 gap-5 pb-8">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-50 p-5 border-t-[4px] border-t-red-400"><h3 class="font-bold text-gray-900 mb-4 text-xs"><i class="fa-solid fa-bug text-red-500 mr-1"></i> 修改</h3>${errorsHtml}</div>
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-50 p-5 border-t-[4px] border-t-blue-400"><h3 class="font-bold text-gray-900 mb-4 text-xs"><i class="fa-solid fa-arrow-up-right-dots text-blue-500 mr-1"></i> 润色</h3>${upgradesHtml}</div>
+                </div>
+                <div class="pb-8">
+                    <h3 class="font-black text-gray-900 text-sm mb-4 flex items-center gap-2"><i class="fa-solid fa-book-open-reader text-orange-500"></i> 三版范文</h3>
+                    <div class="flex flex-col gap-5">${modelsHtml}</div>
+                </div>
+            `;
+        }
+
+        // --- 全屏投影 ---
+        function openFullscreenSlide() {
+            if(!currentPracticeId) return showToast('需先选定一位学生');
+            document.getElementById('slide-student-name').innerText = getLatestRecords().find(x => x.id === currentPracticeId)?.name || '';
+            const slideOverlay = document.getElementById('fullscreen-slide');
+            slideOverlay.classList.add('active');
+            document.getElementById('slide-essay-area').style.fontSize = slideCurrentFontSize + 'px';
+            setSlideTab('original');
+        }
+        function closeFullscreenSlide() {
+            document.getElementById('fullscreen-slide').classList.remove('active');
+            if(isRecording && recognition) recognition.stop();
+        }
+
+        function changeSlideFontSize(delta) {
+            slideCurrentFontSize += delta;
+            if(slideCurrentFontSize < 16) slideCurrentFontSize = 16; if(slideCurrentFontSize > 60) slideCurrentFontSize = 60;
+            document.getElementById('slide-essay-area').style.fontSize = slideCurrentFontSize + 'px';
+        }
+
+        function setSlideTab(tab) {
+            const area = document.getElementById('slide-essay-area'); if(area) slideScrollCache = area.scrollTop; 
+            slideSubMode = tab;
+            const tabs = ['original', 'correction', 'polish', 'summary', 'models'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`slide-tab-${t}`); if(!el) return;
+                if(t === tab) {
+                    if(t==='original') el.className = 'px-6 py-2 rounded-xl text-base font-black bg-gray-900 text-white shadow-md scale-105';
+                    if(t==='correction') el.className = 'px-6 py-2 rounded-xl text-base font-black bg-[#FF3B30] text-white shadow-md scale-105';
+                    if(t==='polish') el.className = 'px-6 py-2 rounded-xl text-base font-black bg-[#007AFF] text-white shadow-md scale-105';
+                    if(t==='summary') el.className = 'px-6 py-2 rounded-xl text-base font-black bg-[#AF52DE] text-white shadow-md scale-105';
+                    if(t==='models') el.className = 'px-6 py-2 rounded-xl text-base font-black bg-[#FF9500] text-white shadow-md scale-105';
+                } else {
+                    el.className = 'px-6 py-2 rounded-xl text-base font-bold text-gray-500 hover:bg-white hover:shadow-sm scale-100 transition-all';
+                }
+            });
+
+            const revealBtn = document.getElementById('slide-reveal-btn');
+            if (tab === 'correction' || tab === 'polish') {
+                revealBtn.classList.remove('hidden'); revealBtn.innerHTML = '<i class="fa-solid fa-eye"></i> 答案'; revealBtn.setAttribute('data-state', 'hidden'); revealBtn.className = 'px-4 py-2 rounded-xl bg-[#34C759] text-white font-bold shadow-md hover:bg-[#30B753] text-sm';
+            } else { revealBtn.classList.add('hidden'); }
+
+            renderSlideEssay();
+            setTimeout(() => { if(area) area.scrollTop = slideScrollCache; }, 10);
+        }
+
+        function toggleAllTranslations() {
+            const btn = document.getElementById('slide-reveal-btn'); const state = btn.getAttribute('data-state');
+            const toggles = document.querySelectorAll('.trans-btn');
+            if (state === 'hidden') {
+                toggles.forEach(el => toggleTranslation(el, true)); 
+                btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i> 隐藏'; btn.setAttribute('data-state', 'revealed'); btn.className = 'px-4 py-2 rounded-xl bg-gray-800 text-white font-bold shadow-md text-sm';
+            } else {
+                toggles.forEach(el => toggleTranslation(el, false)); 
+                btn.innerHTML = '<i class="fa-solid fa-eye"></i> 答案'; btn.setAttribute('data-state', 'hidden'); btn.className = 'px-4 py-2 rounded-xl bg-[#34C759] text-white font-bold shadow-md hover:bg-[#30B753] text-sm';
+            }
+        }
+
+        function toggleTranslation(el, forceState = null) {
+            const contentSpan = el.querySelector('.trans-content'); const en = el.getAttribute('data-en'); const cn = el.getAttribute('data-cn'); const colorType = el.getAttribute('data-color'); 
+            const isCurrentlyChinese = (contentSpan.innerText === cn); const shouldBeEnglish = forceState !== null ? forceState : isCurrentlyChinese;
+
+            if (shouldBeEnglish) {
+                contentSpan.innerText = en; el.classList.remove(`bg-${colorType}-50`, `text-${colorType}-600`, `hover:bg-${colorType}-100`); el.classList.add('bg-[#E8F5E9]', 'text-[#34C759]', 'hover:bg-[#C8E6C9]'); el.querySelector('i').className = 'fa-solid fa-circle-check text-[#34C759]';
+            } else {
+                contentSpan.innerText = cn; el.classList.remove('bg-[#E8F5E9]', 'text-[#34C759]', 'hover:bg-[#C8E6C9]'); el.classList.add(`bg-${colorType}-50`, `text-${colorType}-600`, `hover:bg-${colorType}-100`); el.querySelector('i').className = `fa-solid fa-language text-${colorType}-400`;
+            }
+        }
+
+        function flexibleReplace(html, target, replacementFn) {
+            if(!target) return html; target = String(target).trim(); const exactSafe = escapeHTML(target);
+            if (html.includes(exactSafe)) return html.split(exactSafe).join(replacementFn(exactSafe));
+            const words = target.split(/[\s,.\?!;:'"()\[\]{}]+/g).filter(w => w); if(words.length === 0) return html;
+            const regexStr = words.map(w => escapeRegExp(escapeHTML(w))).join('(?:[\\s\\W]|<br>)*?');
+            try { const regex = new RegExp(`(${regexStr})`, 'gi'); let replaced = false; const newHtml = html.replace(regex, match => { replaced = true; return replacementFn(match); }); if(replaced) return newHtml; } catch(e) {}
+            return html;
+        }
+
+        function renderSlideEssay() {
+            const r = getLatestRecords().find(x => x.id === currentPracticeId); if(!r) return;
+            const area = document.getElementById('slide-essay-area');
+            
+            if (slideSubMode === 'summary') {
+                area.innerHTML = `<div class="flex flex-col items-center justify-center h-full py-12"><div class="w-20 h-20 bg-purple-50 rounded-full flex items-center justify-center mb-8"><i class="fa-solid fa-quote-left text-4xl text-purple-400"></i></div><p class="leading-relaxed text-gray-700 font-bold text-center max-w-4xl whitespace-pre-wrap">${escapeHTML(r.summary || '无总评')}</p></div>`; return;
+            }
+
+            let html = escapeHTML(r.original_essay || '无原文').replace(/\n/g, '<br><br>');
+
+            if (slideSubMode === 'correction') {
+                const errorsArr = Array.isArray(r.errors) ? r.errors : [];
+                errorsArr.forEach(e => {
+                    if(!e.error) return;
+                    const enText = escapeHTML(e.correction || e.error); const cnText = escapeHTML(e.chinese_meaning || '语境翻译');
+                    html = flexibleReplace(html, e.error, (matchText) => { return `<span class="inline-flex flex-col mx-2 my-1 align-middle leading-none shadow-sm rounded-xl overflow-hidden border border-gray-100 bg-white trans-widget"><span class="text-gray-400 bg-[#FBFBFD] px-3 py-2 line-through decoration-red-400 font-medium" style="font-size: 0.55em;">${matchText}</span><span class="trans-btn cursor-pointer px-4 py-3 text-red-600 font-bold bg-red-50 hover:bg-red-100 flex items-center gap-2" onclick="toggleTranslation(this)" data-en="${enText}" data-cn="${cnText}" data-color="red" style="font-size: 0.85em;"><i class="fa-solid fa-language text-red-400"></i> <span class="trans-content">${cnText}</span></span></span>`; });
+                });
+            } else if (slideSubMode === 'polish') {
+                const upArr = Array.isArray(r.upgrades) ? r.upgrades : [];
+                upArr.forEach(u => {
+                    if(!u.original) return;
+                    const enText = escapeHTML(u.upgraded || u.original); const cnText = escapeHTML(u.chinese_meaning || '语境翻译');
+                    html = flexibleReplace(html, u.original, (matchText) => { return `<span class="inline-flex flex-col mx-2 my-1 align-middle leading-none shadow-sm rounded-xl overflow-hidden border border-gray-100 bg-white trans-widget"><span class="text-gray-400 bg-[#FBFBFD] px-3 py-2 font-medium" style="font-size: 0.55em;">${matchText}</span><span class="trans-btn cursor-pointer px-4 py-3 text-blue-600 font-bold bg-blue-50 hover:bg-blue-100 flex items-center gap-2" onclick="toggleTranslation(this)" data-en="${enText}" data-cn="${cnText}" data-color="blue" style="font-size: 0.85em;"><i class="fa-solid fa-language text-blue-400"></i> <span class="trans-content">${cnText}</span></span></span>`; });
+                });
+            } else if (slideSubMode === 'models') {
+                const modelLabels = [
+                    ['Minimum Correction', '保底修改', '只做必要修正，保留学生原意。', 'green'],
+                    ['Score-Boost Version', '提分版本', 'A2可模仿范围内升级表达。', 'blue'],
+                    ['Examiner-Friendly Version', '阅卷友好版本', '更自然地呈现任务完成度。', 'purple']
+                ];
+                const models = normalizeModelEssays(r);
+                const blocks = modelLabels.map(([key, title, desc, color]) => {
+                    const text = models[key];
+                    if(!text) return '';
+                    return `<section class="mb-10 p-8 rounded-[28px] bg-white border border-gray-100 shadow-sm">
+                        <div class="flex items-center justify-between gap-6 mb-5">
+                            <div>
+                                <h2 class="text-${color}-600 font-black text-2xl leading-tight">${title}</h2>
+                                <p class="text-gray-400 font-bold text-sm mt-1">${desc}</p>
+                            </div>
+                            <span class="text-xs font-black uppercase text-${color}-600 bg-${color}-50 px-3 py-1.5 rounded-xl">${key}</span>
+                        </div>
+                        <div class="text-gray-800 font-bold leading-[2.2] whitespace-pre-wrap">${escapeHTML(text)}</div>
+                    </section>`;
+                }).filter(Boolean).join('');
+                area.innerHTML = blocks || `<div class="flex flex-col items-center justify-center min-h-[60vh] text-center"><div class="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center mb-6"><i class="fa-solid fa-circle-info text-3xl text-orange-400"></i></div><p class="text-gray-500 font-bold">这条记录没有范文字段，请用新版完整提示词重新生成 JSON 后录入。</p></div>`;
+                return;
+            }
+            area.innerHTML = html;
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition(); recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'en-US';
+            recognition.onresult = (e) => { const txt = e.results[0][0].transcript; const v2 = document.getElementById('voice-text-fs'); if(v2) v2.value += (v2.value ? ' ' : '') + txt; };
+            recognition.onerror = (e) => {
+                const msg = e.error === 'not-allowed' ? '请允许浏览器使用麦克风' : (e.error === 'network' ? '语音识别需要联网，请检查网络' : '语音输入启动失败');
+                showToast(msg);
+            };
+            recognition.onend = () => { isRecording = false; document.getElementById('btn-voice-fs').classList.remove('bg-blue-50', 'text-[#007AFF]'); document.getElementById('voice-listening-tag').classList.add('hidden'); };
+        }
+        function toggleVoiceInput() {
+            if(!recognition) return showToast('请用 Chrome 或 Edge 打开语音输入'); const btn = document.getElementById('btn-voice-fs'); const tag = document.getElementById('voice-listening-tag');
+            if(isRecording) recognition.stop(); else {
+                try {
+                    recognition.start(); isRecording = true; btn.classList.add('bg-blue-50', 'text-[#007AFF]'); tag.classList.remove('hidden');
+                } catch (e) {
+                    showToast('语音输入正在启动，请稍后再点');
+                }
+            }
+        }
+
+        function clampKetScore(value) {
+            const n = Number(value);
+            if (!Number.isFinite(n)) return 0;
+            return Math.max(0, Math.min(5, n));
+        }
+
+        function buildStudentRadarSvg(r) {
+            const items = [
+                { label: 'Content', cn: '内容', value: clampKetScore(r.content_score), angle: -90 },
+                { label: 'Language', cn: '语言', value: clampKetScore(r.lang_score), angle: 30 },
+                { label: 'Organisation', cn: '组织', value: clampKetScore(r.struct_score), angle: 150 }
+            ];
+            const cx = 110, cy = 86, maxR = 58;
+            const point = (angle, radius) => {
+                const rad = angle * Math.PI / 180;
+                return [cx + Math.cos(rad) * radius, cy + Math.sin(rad) * radius];
+            };
+            const grid = [1, 3, 5].map(level => {
+                const pts = items.map(i => point(i.angle, maxR * level / 5).map(v => v.toFixed(1)).join(',')).join(' ');
+                return `<polygon points="${pts}" fill="none" stroke="#E5E7EB" stroke-width="1" />`;
+            }).join('');
+            const axes = items.map(i => {
+                const [x, y] = point(i.angle, maxR);
+                return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#E5E7EB" stroke-width="1" />`;
+            }).join('');
+            const dataPts = items.map(i => point(i.angle, maxR * i.value / 5).map(v => v.toFixed(1)).join(',')).join(' ');
+            const labels = items.map(i => {
+                const [x, y] = point(i.angle, maxR + 24);
+                const anchor = i.angle === -90 ? 'middle' : (i.angle < 90 ? 'start' : 'end');
+                const dy = i.angle === -90 ? -2 : 4;
+                return `<text x="${x.toFixed(1)}" y="${(y + dy).toFixed(1)}" text-anchor="${anchor}" font-size="10" font-weight="700" fill="#4B5563">${i.label}</text>`;
+            }).join('');
+            const scoreRows = items.map(i => `
+                <div class="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2">
+                    <span class="text-[10px] font-bold text-gray-500">${i.cn}</span>
+                    <span class="text-xs font-black text-[#007AFF]">${i.value}/5</span>
+                </div>
+            `).join('');
+
+            return `
+                <div class="flex flex-col gap-3">
+                    <svg viewBox="0 0 220 170" class="w-full h-44 block" role="img" aria-label="KET三项能力雷达图">
+                        ${grid}
+                        ${axes}
+                        <polygon points="${dataPts}" fill="rgba(0,122,255,0.18)" stroke="#007AFF" stroke-width="3" />
+                        ${items.map(i => {
+                            const [x, y] = point(i.angle, maxR * i.value / 5);
+                            return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#007AFF" stroke="white" stroke-width="2" />`;
+                        }).join('')}
+                        <circle cx="${cx}" cy="${cy}" r="2.5" fill="#94A3B8" />
+                        ${labels}
+                    </svg>
+                    <div class="grid grid-cols-1 gap-2">${scoreRows}</div>
+                </div>
+            `;
+        }
+
+        function openReport(sId) {
+            const records = getLatestRecords(); const r = records.find(x => x.id === sId); if(!r) return;
+            document.getElementById('report-student-name').innerText = `报告`; // 极简
+            
+            const ms = appData.maxScore;
+            const recommendedScore = r.recommended_score ?? r.score ?? 0;
+            const conservativeScore = r.conservative_score ?? r.score ?? 0;
+            const finalTeachingScore = r.final_teaching_score ?? r.score ?? 0;
+            const parentSummary = r.parent_summary || '暂无家长总结。';
+            const studentFeedback = r.student_feedback || '暂无学生反馈。';
+            const teacherNote = r.teacher_note || '暂无老师复核建议。';
+            const taskMeta = [r.task_type, r.part, r.prompt_status].filter(Boolean).join(' · ') || 'A2 Key / KET';
+            
+            const errorsHtml = (Array.isArray(r.errors)?r.errors:[]).map((e) => `<div class="mb-4 bg-red-50/50 rounded-2xl p-5 border border-red-100/50"><p class="text-xs text-gray-500 mb-2 flex justify-between">原句 <span class="text-red-500 font-bold bg-red-100/50 px-2 py-0.5 rounded">${e.reason}</span></p><p class="text-sm font-medium text-gray-800 mb-3 line-through decoration-red-400">${e.error}</p><p class="text-xs text-green-600 font-bold mb-1">更正</p><p class="text-sm font-bold text-green-700">${e.correction}</p></div>`).join('') || '<div class="text-sm text-gray-400 py-4">无语病</div>';
+            const upgradesHtml = (Array.isArray(r.upgrades)?r.upgrades:[]).map((u) => `<div class="mb-4 bg-blue-50/50 rounded-2xl p-5 border border-blue-100/50"><p class="text-xs text-gray-500 mb-2 flex justify-between">原句 <span class="text-blue-500 font-bold bg-blue-100/50 px-2 py-0.5 rounded">${u.points}</span></p><p class="text-sm font-medium text-gray-800 mb-3">${u.original}</p><p class="text-xs text-blue-600 font-bold mb-1">升维</p><p class="text-sm font-bold text-blue-700">${u.upgraded}</p></div>`).join('') || '<div class="text-sm text-gray-400 py-4">无进阶</div>';
+
+            let bracketMap = {}; records.forEach(rc => { const b = rc.bracket || '未定档'; if(!bracketMap[b]) bracketMap[b] = {name: b, scores: []}; bracketMap[b].scores.push(rc.score); });
+            let sortedBrackets = Object.values(bracketMap).map(b => ({ name: b.name, avg: b.scores.reduce((a,v)=>a+v,0)/b.scores.length })).sort((a,b) => b.avg - a.avg).map(b => b.name);
+            const curBracket = r.bracket || '未定档'; const curIndex = sortedBrackets.indexOf(curBracket);
+            
+            const modelEntries = Object.entries(r.model_essays || {}).filter(([_, value]) => String(value || '').trim());
+            const modelBlock = (label, text, color='blue') => `<div class="mb-4"><span class="text-xs font-bold text-${color}-600 bg-${color}-50 px-3 py-1 rounded-md">${escapeHTML(label)}</span><div class="text-sm text-gray-700 bg-white p-5 rounded-2xl shadow-sm leading-relaxed mt-2 whitespace-pre-wrap">${escapeHTML(text)}</div></div>`;
+            let modelsHtml = '';
+            if (modelEntries.length > 0) {
+                if (curIndex !== -1) {
+                    if(r.model_essays[curBracket]) modelsHtml += modelBlock(`本档：${curBracket}`, r.model_essays[curBracket], 'blue');
+                    if(curIndex > 0) { const targetUp = sortedBrackets[curIndex - 1]; if(r.model_essays[targetUp]) modelsHtml += modelBlock(`ZPD：${targetUp}`, r.model_essays[targetUp], 'purple'); }
+                }
+                if (!modelsHtml) modelsHtml = modelEntries.map(([k, value]) => modelBlock(k, value, 'blue')).join('');
+            } else { modelsHtml = '<p class="text-sm text-gray-400">JSON 里没有范文字段，请用新版完整提示词重新生成并录入。</p>'; }
+
+            document.getElementById('report-canvas-area').innerHTML = `
+                <div class="grid grid-cols-4 gap-4 mb-8 text-center">
+                    <div class="bg-blue-50 p-6 rounded-3xl border border-blue-100"><p class="text-[10px] text-blue-500 font-bold mb-1">教学交付分</p><p class="text-4xl font-black text-[#007AFF]">${finalTeachingScore}</p><p class="text-[10px] text-blue-400 mt-1">/ ${ms}</p></div>
+                    <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm"><p class="text-[10px] text-gray-400 font-bold mb-1">均分</p><p class="text-3xl font-black text-gray-800 mt-1">${document.getElementById('stat-avg').innerText}</p></div>
+                    <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm"><p class="text-[10px] text-gray-400 font-bold mb-1">字数</p><p class="text-3xl font-black text-gray-800 mt-1">${r.words || '--'}</p></div>
+                    <div class="bg-purple-50 p-6 rounded-3xl border border-purple-100"><p class="text-[10px] text-purple-500 font-bold mb-1">单题表现</p><p class="text-2xl font-black text-purple-600 mt-2 truncate">${curBracket}</p></div>
+                </div>
+                <div class="grid grid-cols-3 gap-4 mb-8 text-center">
+                    <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm"><p class="text-[10px] text-gray-400 font-bold mb-1">Recommended</p><p class="text-2xl font-black text-gray-800">${recommendedScore}</p></div>
+                    <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm"><p class="text-[10px] text-gray-400 font-bold mb-1">Conservative</p><p class="text-2xl font-black text-gray-800">${conservativeScore}</p></div>
+                    <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm"><p class="text-[10px] text-gray-400 font-bold mb-1">题型信息</p><p class="text-xs font-bold text-gray-700 mt-2">${taskMeta}</p></div>
+                </div>
+                
+                <div class="grid grid-cols-3 gap-6 mb-8">
+                    <div class="col-span-1 bg-white rounded-3xl p-6 shadow-sm border border-gray-100"><h3 class="font-bold text-gray-800 text-xs mb-2"><i class="fa-solid fa-chart-simple text-purple-500 mr-1"></i> 雷达</h3>${buildStudentRadarSvg(r)}</div>
+                    <div class="col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col"><h3 class="font-bold text-gray-800 mb-3 text-xs"><i class="fa-solid fa-comment-dots text-blue-500 mr-1"></i> 总评</h3><p class="text-sm text-gray-700 leading-[1.8] bg-[#FBFBFD] p-5 rounded-2xl flex-1 whitespace-pre-wrap">${r.summary}</p></div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100"><h3 class="font-bold text-gray-800 mb-3 text-xs"><i class="fa-solid fa-user-graduate text-green-500 mr-1"></i> 学生反馈</h3><p class="text-sm text-gray-700 leading-[1.8] whitespace-pre-wrap">${studentFeedback}</p></div>
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100"><h3 class="font-bold text-gray-800 mb-3 text-xs"><i class="fa-solid fa-house-user text-orange-500 mr-1"></i> 家长总结</h3><p class="text-sm text-gray-700 leading-[1.8] whitespace-pre-wrap">${parentSummary}</p></div>
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100"><h3 class="font-bold text-gray-800 mb-3 text-xs"><i class="fa-solid fa-clipboard-check text-purple-500 mr-1"></i> 老师建议</h3><p class="text-sm text-gray-700 leading-[1.8] whitespace-pre-wrap">${teacherNote}</p></div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-6 mb-8">
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border-t-[6px] border-red-400"><h3 class="font-bold text-gray-800 mb-4 text-xs"><i class="fa-solid fa-bug text-red-500 mr-1"></i> 语病</h3>${errorsHtml}</div>
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border-t-[6px] border-blue-400"><h3 class="font-bold text-gray-800 mb-4 text-xs"><i class="fa-solid fa-arrow-up-right-dots text-blue-500 mr-1"></i> 进阶</h3>${upgradesHtml}</div>
+                </div>
+
+                <div class="bg-[#FBFBFD] rounded-3xl p-6 border border-gray-100"><h3 class="font-bold text-gray-800 mb-4 text-xs"><i class="fa-solid fa-graduation-cap text-orange-500 mr-1"></i> 范文</h3>${modelsHtml}</div>
+            `;
+            openModal('report-modal');
+        }
+
+        function exportReport() {
+            showToast('生成高清长图中...');
+            const modalContent = document.getElementById('report-modal-content'); const el = document.getElementById('report-canvas-area'); const controls = document.getElementById('report-controls');
+            const originalMaxHeight = modalContent.style.maxHeight; const originalOverflow = el.style.overflow;
+            controls.style.display = 'none'; modalContent.style.maxHeight = 'none'; el.style.overflow = 'visible';
+
+            const wm = document.createElement('div'); const tName = appData.teacherName ? `批阅：${appData.teacherName}` : '系统自动批阅';
+            wm.innerHTML = `<div style="text-align:center; padding: 30px 0; font-family: sans-serif;"><p style="color:#A1A1A6; font-size:12px; font-weight: bold; letter-spacing: 1px;">KET / A2 Key 作文批改系统</p><p style="color:#D2D2D7; font-size:10px; margin-top: 4px;">${tName}</p></div>`;
+            el.appendChild(wm);
+
+            setTimeout(() => {
+                html2canvas(modalContent, { scale: 2, backgroundColor: '#FFFFFF', useCORS: true, logging: false }).then(canvas => {
+                    const a = document.createElement('a'); a.download = `${document.getElementById('report-student-name').innerText}.png`; a.href = canvas.toDataURL('image/png'); a.click(); 
+                    modalContent.style.maxHeight = originalMaxHeight; el.style.overflow = originalOverflow; controls.style.display = 'flex'; wm.remove(); showToast('导出成功！');
+                });
+            }, 100);
+        }
+
+        initData();
+
+    </script>
+</body>
+</html>

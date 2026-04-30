@@ -1,0 +1,11 @@
+# Local student data exports
+CharlieAI_Backup_*.json
+*_家校反馈_*.txt
+*_主教复盘_*.txt
+*_KET批改交付表_*.xls
+*.xlsx
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
