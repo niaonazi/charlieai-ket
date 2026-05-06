@@ -108,6 +108,9 @@
             <div class="text-xs font-bold text-gray-500 bg-white/80 px-4 py-1.5 rounded-full border border-gray-100 shadow-sm flex items-center gap-2">
                 <i class="fa-solid fa-graduation-cap text-[#007AFF]"></i>
                 <span id="top-class-name" class="truncate max-w-[150px]">未选择班级</span>
+                <select id="class-switcher" onchange="selectClass(this.value)" class="bg-transparent outline-none text-gray-700 font-bold max-w-[180px] cursor-pointer">
+                    <option value="">选择班级</option>
+                </select>
             </div>
         </header>
 
@@ -2251,7 +2254,7 @@ TA follow-up:
         function toggleFolder(cId) { const cls = appData.classes.find(c => c.id === cId); if(cls) { cls.collapsed = !cls.collapsed; renderSidebar(); saveData(); } }
         
         function selectClass(cId) { 
-            appData.currentClassId = cId; renderSidebar(); 
+            appData.currentClassId = cId || null; saveData(); renderSidebar(); 
             if(!document.getElementById('student-essays').classList.contains('hidden')) renderEssays();
             if(!document.getElementById('data-analysis').classList.contains('hidden')) renderAnalysis(); 
             if(!document.getElementById('writing-guidance').classList.contains('hidden')) renderGuidance(); 
@@ -2291,8 +2294,8 @@ TA follow-up:
                 const isCur = cls.id === appData.currentClassId; const div = document.createElement('div'); div.className = 'mb-1';
                 div.innerHTML = `
                     <div class="group flex justify-between items-center p-2 rounded-xl cursor-pointer select-none transition-colors ${isCur ? 'bg-[#E8F2FF] text-[#007AFF]' : 'hover:bg-white text-gray-700'}" onclick="selectClass('${cls.id}')">
-                        <div class="flex items-center gap-2 flex-1 overflow-hidden" onclick="toggleFolder('${cls.id}'); event.stopPropagation();">
-                            <i class="fa-solid fa-folder text-[#007AFF]/60 shrink-0"></i>
+                        <div class="flex items-center gap-2 flex-1 overflow-hidden">
+                            <i class="fa-solid ${cls.collapsed ? 'fa-folder' : 'fa-folder-open'} text-[#007AFF]/60 shrink-0 hover:text-[#007AFF]" onclick="toggleFolder('${cls.id}'); event.stopPropagation();" title="${cls.collapsed ? '展开学生' : '收起学生'}"></i>
                             <span class="font-bold text-sm truncate" title="${cls.name}">${cls.name}</span>
                         </div>
                         <div class="hidden group-hover:flex items-center gap-1.5 opacity-60 hover:opacity-100 pl-1 shrink-0">
@@ -2325,6 +2328,13 @@ TA follow-up:
             });
             const currCls = appData.classes.find(c => c.id === appData.currentClassId);
             document.getElementById('top-class-name').innerText = currCls ? currCls.name : '未选择班级';
+            const classSwitcher = document.getElementById('class-switcher');
+            if (classSwitcher) {
+                classSwitcher.innerHTML = '';
+                classSwitcher.add(new Option('选择班级', ''));
+                appData.classes.forEach(cls => classSwitcher.add(new Option(cls.name, cls.id)));
+                classSwitcher.value = currCls ? currCls.id : '';
+            }
         }
 
         function openUploadModal(sId, sName) {
@@ -2510,9 +2520,37 @@ JSON 字段必须包含：
             const blob = new Blob([JSON.stringify(appData)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement('a');
             a.download = `CharlieAI_Backup_${Date.now()}.json`; a.href = url; a.click(); URL.revokeObjectURL(url);
         }
+
+        function getRestoreTargetClassId(importedData) {
+            const classes = Array.isArray(importedData.classes) ? importedData.classes : [];
+            if (!classes.length) return null;
+            const savedClassId = importedData.currentClassId;
+            if (savedClassId && classes.some(cls => cls.id === savedClassId)) return savedClassId;
+            const classWithRecords = classes.find(cls => Array.isArray(cls.students) && cls.students.some(s => Array.isArray(s.records) && s.records.length));
+            return (classWithRecords || classes[0]).id;
+        }
+
+        function syncConfigInputs() {
+            document.getElementById('ai-topic').value = appData.aiTopic || '';
+            document.getElementById('ai-rubric').value = appData.aiRubric || '';
+            document.getElementById('teacher-name').value = appData.teacherName || '';
+        }
+
         function restoreData(e) {
             const file = e.target.files[0]; if(!file) return; const r = new FileReader();
-            r.onload = (evt) => { try { appData = JSON.parse(evt.target.result); saveData(); renderSidebar(); selectClass(appData.classes[0]?.id); showToast('恢复成功'); } catch(err) { showToast('文件损坏！'); } }; r.readAsText(file); e.target.value = '';
+            r.onload = (evt) => { 
+                try { 
+                    const importedData = JSON.parse(evt.target.result);
+                    appData = Object.assign({ classes: [], currentClassId: null, maxScore: 15, passMark: 8, aiTopic: "", aiRubric: "", teacherName: "" }, importedData);
+                    if (!Array.isArray(appData.classes)) appData.classes = [];
+                    appData.currentClassId = getRestoreTargetClassId(appData);
+                    syncConfigInputs();
+                    saveData(); 
+                    selectClass(appData.currentClassId);
+                    const currentClass = getCurrentClass();
+                    showToast(currentClass ? `恢复成功，已切换到：${currentClass.name}` : '恢复成功'); 
+                } catch(err) { showToast('文件损坏！'); } 
+            }; r.readAsText(file); e.target.value = '';
         }
 
         function getLatestRecords() {
